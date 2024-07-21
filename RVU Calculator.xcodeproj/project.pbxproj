@@ -20,6 +20,7 @@
 		A910E2782C4CA66800819B9C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A910E27A2C4CA66800819B9C /* RVU_Calculator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RVU_Calculator.entitlements; sourceTree = "<group>"; };
 		A910E27C2C4CA66800819B9C /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		A910E2832C4CADA700819B9C /* RVU-Calculator-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "RVU-Calculator-Info.plist"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +53,7 @@
 		A910E2732C4CA66700819B9C /* RVU Calculator */ = {
 			isa = PBXGroup;
 			children = (
+				A910E2832C4CADA700819B9C /* RVU-Calculator-Info.plist */,
 				A910E2742C4CA66700819B9C /* RVU_CalculatorApp.swift */,
 				A910E2762C4CA66700819B9C /* ContentView.swift */,
 				A910E2782C4CA66800819B9C /* Assets.xcassets */,
@@ -274,6 +276,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "RVU-Calculator-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -312,6 +316,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "RVU-Calculator-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
