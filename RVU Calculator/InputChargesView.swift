@@ -47,6 +47,6 @@ struct InputChargesView: View {
     }
 }
 
-#Preview {
-    InputChargesView()
-}
+//#Preview {
+//    InputChargesView()
+//}
