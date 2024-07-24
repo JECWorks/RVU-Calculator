@@ -27,6 +27,7 @@ import SwiftUI
 
 struct CPTListView: View {
     let selectedYear: Int
+    @Binding var totalRVUs: Double
     @State private var selectedCPT: CPTCode? = nil
     @State private var navigateToInputCharges = false
     
@@ -47,7 +48,7 @@ struct CPTListView: View {
         .navigationTitle("Select CPT Code")
         .navigationDestination(isPresented: $navigateToInputCharges) {
             if let selectedCPT = selectedCPT {
-                InputChargesView(selectedCPT: selectedCPT, selectedYear: selectedYear)
+                InputChargesView(selectedCPT: selectedCPT, selectedYear: selectedYear, totalRVUs: $totalRVUs)
             }
         }
     }

@@ -10,8 +10,9 @@ import SwiftUI
 struct InputChargesView: View {
     let selectedCPT: CPTCode
     let selectedYear: Int
+    @Binding var totalRVUs: Double
     @State private var charges: String = ""
-    @State private var totalRVUs: Double = 0
+    @State private var selectedCPTTotalRVUs: Double = 0
     @State private var navigateToResult = false
     
     var body: some View {
@@ -28,7 +29,9 @@ struct InputChargesView: View {
             Button(action: {
                 if let chargesInt = Int(self.charges) {
                     let rvu = selectedYear == 2020 ? selectedCPT.rvu2020 : selectedCPT.rvu2024
-                    self.totalRVUs += rvu * Double(chargesInt)
+                    let currentTotalRVUs = rvu * Double(chargesInt)
+                    self.selectedCPTTotalRVUs = currentTotalRVUs
+                    self.totalRVUs += currentTotalRVUs
                 }
                 self.navigateToResult = true
             }) {
@@ -42,7 +45,7 @@ struct InputChargesView: View {
         }
         .navigationTitle("Input Charges")
         .navigationDestination(isPresented: $navigateToResult) {
-            ResultView(totalRVUs: totalRVUs)
+            ResultView(totalRVUs: $totalRVUs, selectedCPTTotalRVUs: selectedCPTTotalRVUs, selectedYear: selectedYear)
         }
     }
 }

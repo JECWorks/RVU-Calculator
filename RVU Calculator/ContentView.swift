@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedYear: Int? = nil
     @State private var navigateToCPTList = false
+    @State private var totalRVUs: Double = 0.0
     
     var body: some View {
         NavigationStack {
@@ -49,7 +50,7 @@ struct ContentView: View {
             }
             .navigationDestination(isPresented: $navigateToCPTList) {
                 if let selectedYear = selectedYear {
-                    CPTListView(selectedYear: selectedYear)
+                    CPTListView(selectedYear: selectedYear, totalRVUs: $totalRVUs)
                 }
             }
         }
