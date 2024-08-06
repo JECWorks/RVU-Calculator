@@ -19,11 +19,11 @@ struct InputChargesView: View {
         VStack {
             Text("Enter charges for \(selectedCPT.code)")
                 .font(.headline)
-                .keyboardType(.decimalPad)
                 .padding()
             
             TextField("Number of charges", text: $charges)
 //                .keyboardType(.numberPad)
+                .keyboardType(.decimalPad)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
             
