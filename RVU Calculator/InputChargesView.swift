@@ -22,7 +22,6 @@ struct InputChargesView: View {
                 .padding()
             
             TextField("Number of charges", text: $charges)
-//                .keyboardType(.numberPad)
                 .keyboardType(.decimalPad)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
