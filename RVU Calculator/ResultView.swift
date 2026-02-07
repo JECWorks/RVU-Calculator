@@ -95,7 +95,17 @@ struct ResultView: View {
                     }
                 }
                 .padding()
-                .background(Color.gray.opacity(0.1))
+                .background(
+                    LinearGradient(
+                        colors: [Color.white, Color(.sRGB, white: 0.94, opacity: 1.0)],
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.gray.opacity(0.18), lineWidth: 1)
+                )
                 .cornerRadius(10)
             }
             .padding()
