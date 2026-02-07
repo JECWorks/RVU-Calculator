@@ -16,12 +16,18 @@ struct CPTSummary: Identifiable {
 }
 
 struct ResultView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let totalRVUs2020: Double
     let totalRVUs2024: Double
     let cptSummaries: [CPTSummary]
 
     private var is2024Higher: Bool { totalRVUs2024 > totalRVUs2020 }
     private var is2020Higher: Bool { totalRVUs2020 > totalRVUs2024 }
+    private var totalBlueCardTint: Color { colorScheme == .dark ? Color.blue.opacity(0.24) : Color.blue.opacity(0.12) }
+    private var totalGreenCardTint: Color { colorScheme == .dark ? Color.green.opacity(0.24) : Color.green.opacity(0.12) }
+    private var cptBlueChipBackground: Color { colorScheme == .dark ? Color.blue.opacity(0.30) : Color.blue.opacity(0.14) }
+    private var cptGreenChipBackground: Color { colorScheme == .dark ? Color.green.opacity(0.30) : Color.green.opacity(0.14) }
 
     private var changeText: String {
         guard totalRVUs2020 > 0 else { return "N/A" }
@@ -41,7 +47,7 @@ struct ResultView: View {
                     totalCard(
                         title: "2020 Schedule",
                         value: totalRVUs2020,
-                        tint: Color.blue.opacity(0.12),
+                        tint: totalBlueCardTint,
                         emphasized: is2020Higher,
                         badge: nil
                     )
@@ -49,7 +55,7 @@ struct ResultView: View {
                     totalCard(
                         title: "2024 Schedule",
                         value: totalRVUs2024,
-                        tint: Color.green.opacity(0.12),
+                        tint: totalGreenCardTint,
                         emphasized: is2024Higher,
                         badge: changeText
                     )
@@ -68,13 +74,13 @@ struct ResultView: View {
                             .frame(width: 96, alignment: .trailing)
                             .padding(.vertical, 4)
                             .padding(.horizontal, 6)
-                            .background(Color.blue.opacity(0.14))
+                            .background(cptBlueChipBackground)
                             .cornerRadius(6)
                         Text("2024")
                             .frame(width: 96, alignment: .trailing)
                             .padding(.vertical, 4)
                             .padding(.horizontal, 6)
-                            .background(Color.green.opacity(0.14))
+                            .background(cptGreenChipBackground)
                             .cornerRadius(6)
                     }
                     .font(.subheadline.bold())
@@ -98,14 +104,14 @@ struct ResultView: View {
                                     .frame(width: 96, alignment: .trailing)
                                     .padding(.vertical, 4)
                                     .padding(.horizontal, 6)
-                                    .background(Color.blue.opacity(0.14))
+                                    .background(cptBlueChipBackground)
                                     .cornerRadius(6)
                                 Text("\(summary.total2024, specifier: "%.2f")")
                                     .font(.body.monospacedDigit())
                                     .frame(width: 96, alignment: .trailing)
                                     .padding(.vertical, 4)
                                     .padding(.horizontal, 6)
-                                    .background(Color.green.opacity(0.14))
+                                    .background(cptGreenChipBackground)
                                     .cornerRadius(6)
                             }
                             .font(.subheadline)
@@ -119,7 +125,9 @@ struct ResultView: View {
                 .padding(14)
                 .background(
                     LinearGradient(
-                        colors: [Color.white, Color(.sRGB, white: 0.94, opacity: 1.0)],
+                        colors: colorScheme == .dark
+                            ? [Color(.sRGB, white: 0.42, opacity: 1.0), Color(.sRGB, white: 0.20, opacity: 1.0)]
+                            : [Color.white, Color(.sRGB, white: 0.94, opacity: 1.0)],
                         startPoint: .bottomLeading,
                         endPoint: .topTrailing
                     )
