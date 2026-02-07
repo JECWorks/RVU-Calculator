@@ -1,0 +1,79 @@
+{
+  "" : {
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU Calculator-primary.dia",
+    "emit-module-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU Calculator-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU Calculator-primary-emit-module.dia",
+    "pch" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU Calculator-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU Calculator-primary.swiftdeps"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/CPTCode.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTCode~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/CPTListView.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/CPTListView~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/ContentView.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/InputChargesView.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/InputChargesView~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/RVU_CalculatorApp.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/RVU_CalculatorApp~partial.swiftmodule"
+  },
+  "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/RVU Calculator/ResultView.swift" : {
+    "const-values" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.swiftconstvalues",
+    "dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.d",
+    "diagnostics" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.dia",
+    "index-unit-output-path" : "/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.o",
+    "llvm-bc" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.bc",
+    "object" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.o",
+    "swift-dependencies" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView.swiftdeps",
+    "swiftmodule" : "/Users/jasoncox/Documents/GitHub/Swift/RVU Calculator/DerivedData/Build/Intermediates.noindex/RVU Calculator.build/Debug/RVU Calculator.build/Objects-normal/arm64/ResultView~partial.swiftmodule"
+  }
+}

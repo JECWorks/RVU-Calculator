@@ -8,46 +8,40 @@
 import SwiftUI
 
 struct ResultView: View {
-    @Binding var totalRVUs: Double
-    let selectedCPTTotalRVUs: Double
-    let selectedYear: Int
-    
+    let totalRVUs2020: Double
+    let totalRVUs2024: Double
+
     var body: some View {
-        VStack {
-            Text("Total RVUs for the day:")
-                .font(.headline)
-                .padding()
-            
-            Text("\(totalRVUs, specifier: "%.2f")")
+        VStack(spacing: 20) {
+            Text("Total RVUs")
                 .font(.largeTitle)
-                .padding()
-            
-            Text("Total RVUs for the selected CPT:")
-                .font(.headline)
                 .padding(.top)
-            
-            Text("\(selectedCPTTotalRVUs, specifier: "%.2f")")
-                .font(.title)
-                .padding(.bottom)
-            
-            NavigationLink(destination: CPTListView(selectedYear: selectedYear, totalRVUs: $totalRVUs)) {
-                Text("Add Another CPT Code")
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+
+            VStack(spacing: 12) {
+                Text("2020 Schedule")
+                    .font(.headline)
+                Text("\(totalRVUs2020, specifier: "%.2f")")
+                    .font(.title)
             }
+            .frame(maxWidth: .infinity)
             .padding()
-            
-            NavigationLink(destination: ContentView()) {
-                Text("Start Over")
-                    .padding()
-                    .background(Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(10)
+
+            VStack(spacing: 12) {
+                Text("2024 Schedule")
+                    .font(.headline)
+                Text("\(totalRVUs2024, specifier: "%.2f")")
+                    .font(.title)
             }
+            .frame(maxWidth: .infinity)
             .padding()
+            .background(Color.green.opacity(0.1))
+            .cornerRadius(10)
+
+            Spacer()
         }
+        .padding()
         .navigationTitle("Results")
     }
 }

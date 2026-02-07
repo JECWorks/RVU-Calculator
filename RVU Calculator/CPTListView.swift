@@ -6,51 +6,73 @@
 //
 import SwiftUI
 
-//struct CPTListView: View {
-//    let selectedYear: Int
-//    @State private var selectedCPT: CPTCode? = nil
-//    
-//    var body: some View {
-//        List(cptCodes) { cpt in
-//            NavigationLink(destination: InputChargesView(selectedCPT: cpt, selectedYear: selectedYear)) {
-//                VStack(alignment: .leading) {
-//                    Text(cpt.code)
-//                    Text(cpt.description)
-//                        .font(.subheadline)
-//                        .foregroundColor(.gray)
-//                }
-//            }
-//        }
-//        .navigationTitle("Select CPT Code")
-//    }
-//}
-
 struct CPTListView: View {
-    let selectedYear: Int
-    @Binding var totalRVUs: Double
-    @State private var selectedCPT: CPTCode? = nil
-    @State private var navigateToInputCharges = false
-    
+    @State private var chargeCounts: [Int: String] = [:]
+    @State private var totalRVUs2020: Double = 0
+    @State private var totalRVUs2024: Double = 0
+    @State private var navigateToResults = false
+
     var body: some View {
-        List(cptCodes) { cpt in
-            Button(action: {
-                self.selectedCPT = cpt
-                self.navigateToInputCharges = true
-            }) {
-                VStack(alignment: .leading) {
-                    Text(cpt.code)
-                    Text(cpt.description)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+        VStack {
+            List(cptCodes) { cpt in
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(cpt.code)
+                            .font(.headline)
+                        Text(cpt.description)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    TextField("0", text: binding(for: cpt))
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .frame(width: 70)
+                        .textFieldStyle(.roundedBorder)
                 }
+                .padding(.vertical, 4)
             }
-        }
-        .navigationTitle("Select CPT Code")
-        .navigationDestination(isPresented: $navigateToInputCharges) {
-            if let selectedCPT = selectedCPT {
-                InputChargesView(selectedCPT: selectedCPT, selectedYear: selectedYear, totalRVUs: $totalRVUs)
+
+            Button(action: calculateTotals) {
+                Text("Calculate Total RVUs")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
             }
+            .padding()
         }
+        .navigationTitle("CPT Charge Entry")
+        .navigationDestination(isPresented: $navigateToResults) {
+            ResultView(totalRVUs2020: totalRVUs2020, totalRVUs2024: totalRVUs2024)
+        }
+    }
+
+    private func binding(for cpt: CPTCode) -> Binding<String> {
+        Binding(
+            get: { chargeCounts[cpt.id, default: ""] },
+            set: { newValue in
+                let digitsOnly = newValue.filter(\.isNumber)
+                chargeCounts[cpt.id] = digitsOnly
+            }
+        )
+    }
+
+    private func calculateTotals() {
+        totalRVUs2020 = cptCodes.reduce(0) { result, cpt in
+            let count = Int(chargeCounts[cpt.id] ?? "") ?? 0
+            return result + (Double(count) * cpt.rvu2020)
+        }
+
+        totalRVUs2024 = cptCodes.reduce(0) { result, cpt in
+            let count = Int(chargeCounts[cpt.id] ?? "") ?? 0
+            return result + (Double(count) * cpt.rvu2024)
+        }
+
+        navigateToResults = true
     }
 }
 

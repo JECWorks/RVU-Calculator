@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		A90D85622C4F4FFA00965E76 /* CPTCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90D85612C4F4FFA00965E76 /* CPTCode.swift */; };
 		A90D85642C4F527E00965E76 /* CPTListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90D85632C4F527E00965E76 /* CPTListView.swift */; };
-		A90D85662C4F52BF00965E76 /* InputChargesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90D85652C4F52BF00965E76 /* InputChargesView.swift */; };
 		A90D85682C4F52E900965E76 /* ResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90D85672C4F52E900965E76 /* ResultView.swift */; };
 		A910E2752C4CA66700819B9C /* RVU_CalculatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A910E2742C4CA66700819B9C /* RVU_CalculatorApp.swift */; };
 		A910E2772C4CA66700819B9C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A910E2762C4CA66700819B9C /* ContentView.swift */; };
@@ -20,7 +19,6 @@
 /* Begin PBXFileReference section */
 		A90D85612C4F4FFA00965E76 /* CPTCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPTCode.swift; sourceTree = "<group>"; };
 		A90D85632C4F527E00965E76 /* CPTListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPTListView.swift; sourceTree = "<group>"; };
-		A90D85652C4F52BF00965E76 /* InputChargesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputChargesView.swift; sourceTree = "<group>"; };
 		A90D85672C4F52E900965E76 /* ResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultView.swift; sourceTree = "<group>"; };
 		A910E2712C4CA66700819B9C /* RVU Calculator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RVU Calculator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A910E2742C4CA66700819B9C /* RVU_CalculatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RVU_CalculatorApp.swift; sourceTree = "<group>"; };
@@ -66,7 +64,6 @@
 				A90D85612C4F4FFA00965E76 /* CPTCode.swift */,
 				A910E2762C4CA66700819B9C /* ContentView.swift */,
 				A90D85672C4F52E900965E76 /* ResultView.swift */,
-				A90D85652C4F52BF00965E76 /* InputChargesView.swift */,
 				A90D85632C4F527E00965E76 /* CPTListView.swift */,
 				A910E2782C4CA66800819B9C /* Assets.xcassets */,
 				A910E27A2C4CA66800819B9C /* RVU_Calculator.entitlements */,
@@ -153,7 +150,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A90D85662C4F52BF00965E76 /* InputChargesView.swift in Sources */,
 				A910E2772C4CA66700819B9C /* ContentView.swift in Sources */,
 				A910E2752C4CA66700819B9C /* RVU_CalculatorApp.swift in Sources */,
 				A90D85642C4F527E00965E76 /* CPTListView.swift in Sources */,
