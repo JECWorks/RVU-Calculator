@@ -59,8 +59,16 @@ struct ResultView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text("2020")
                             .frame(width: 90, alignment: .trailing)
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 6)
+                            .background(Color.blue.opacity(0.12))
+                            .cornerRadius(6)
                         Text("2024")
                             .frame(width: 90, alignment: .trailing)
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 6)
+                            .background(Color.green.opacity(0.12))
+                            .cornerRadius(6)
                     }
                     .font(.subheadline.bold())
 
@@ -70,8 +78,16 @@ struct ResultView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text("\(summary.total2020, specifier: "%.2f")")
                                 .frame(width: 90, alignment: .trailing)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 6)
+                                .background(Color.blue.opacity(0.12))
+                                .cornerRadius(6)
                             Text("\(summary.total2024, specifier: "%.2f")")
                                 .frame(width: 90, alignment: .trailing)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 6)
+                                .background(Color.green.opacity(0.12))
+                                .cornerRadius(6)
                         }
                         .font(.subheadline)
                     }
