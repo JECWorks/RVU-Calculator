@@ -27,27 +27,29 @@ struct ResultView: View {
                     .font(.largeTitle)
                     .padding(.top)
 
-                VStack(spacing: 12) {
-                    Text("2020 Schedule")
-                        .font(.headline)
-                    Text("\(totalRVUs2020, specifier: "%.2f")")
-                        .font(.title)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(10)
+                HStack(spacing: 12) {
+                    VStack(spacing: 12) {
+                        Text("2020 Schedule")
+                            .font(.headline)
+                        Text("\(totalRVUs2020, specifier: "%.2f")")
+                            .font(.title)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(10)
 
-                VStack(spacing: 12) {
-                    Text("2024 Schedule")
-                        .font(.headline)
-                    Text("\(totalRVUs2024, specifier: "%.2f")")
-                        .font(.title)
+                    VStack(spacing: 12) {
+                        Text("2024 Schedule")
+                            .font(.headline)
+                        Text("\(totalRVUs2024, specifier: "%.2f")")
+                            .font(.title)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(10)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(10)
 
                 VStack(spacing: 10) {
                     Text("CPT Summary")
