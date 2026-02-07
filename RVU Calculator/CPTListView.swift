@@ -14,37 +14,55 @@ struct CPTListView: View {
     @State private var navigateToResults = false
 
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
+            HStack {
+                Text("CPT")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Count")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(width: 80, alignment: .trailing)
+            }
+            .padding(.horizontal)
+
+            Divider()
+
             List(cptCodes) { cpt in
-                HStack(alignment: .top) {
+                HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(cpt.code)
                             .font(.headline)
                         Text(cpt.description)
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
 
                     Spacer()
 
                     TextField("0", text: binding(for: cpt))
+                        .font(.body.monospacedDigit())
                         .multilineTextAlignment(.trailing)
                         .keyboardType(.numberPad)
-                        .frame(width: 70)
+                        .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
                 }
                 .padding(.vertical, 4)
             }
+            .listStyle(.plain)
 
             Button(action: calculateTotals) {
                 Text("Calculate Total RVUs")
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(12)
                     .background(Color.blue)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 4)
         }
         .navigationTitle("CPT Charge Entry")
         .navigationDestination(isPresented: $navigateToResults) {
