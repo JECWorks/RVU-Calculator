@@ -47,7 +47,7 @@ struct CPTListView: View {
             }
             .padding(16)
         }
-        .navigationTitle("Calendar RVU")
+        .navigationTitle("RVU Calculator")
         .onChange(of: selectedDate) { _, newDate in
             selectedYear = Calendar.current.component(.year, from: newDate)
         }
@@ -83,10 +83,10 @@ struct CPTListView: View {
 
                 Spacer()
 
-                Stepper("\(selectedYear)", value: $selectedYear, in: 2020...2100)
+                Stepper("", value: $selectedYear, in: 2020...2100)
                     .labelsHidden()
 
-                Text("\(selectedYear)")
+                Text(String(selectedYear))
                     .font(.subheadline.monospacedDigit())
             }
 
@@ -132,6 +132,10 @@ struct DayChargeEntryView: View {
 
     @State private var chargeCounts: [Int: String] = [:]
     @State private var statusMessage: String?
+    @State private var summaryTotals2020: Double = 0
+    @State private var summaryTotals2024: Double = 0
+    @State private var summaryRows: [CPTSummary] = []
+    @State private var showSummary = false
 
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -212,6 +216,19 @@ struct DayChargeEntryView: View {
         .navigationTitle(dateFormatter.string(from: date))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadForDate)
+        .sheet(isPresented: $showSummary) {
+            NavigationStack {
+                ResultView(
+                    totalRVUs2020: summaryTotals2020,
+                    totalRVUs2024: summaryTotals2024,
+                    cptSummaries: summaryRows,
+                    onReturnToCalendar: {
+                        showSummary = false
+                        dismiss()
+                    }
+                )
+            }
+        }
     }
 
     private func binding(for cpt: CPTCode) -> Binding<String> {
@@ -264,12 +281,31 @@ struct DayChargeEntryView: View {
             }
 
             try modelContext.save()
-            statusMessage = normalized.isEmpty
-                ? "Saved empty day (record removed)."
-                : "Saved for \(dateFormatter.string(from: date))."
+            statusMessage = nil
+            buildSummary(from: normalized)
+            showSummary = true
         } catch {
             statusMessage = "Unable to save. Please try again."
         }
+    }
+
+    private func buildSummary(from counts: [Int: Int]) {
+        let summaries = cptCodes.compactMap { cpt -> CPTSummary? in
+            let count = counts[cpt.id] ?? 0
+            guard count > 0 else { return nil }
+
+            return CPTSummary(
+                id: cpt.id,
+                code: cpt.code,
+                count: count,
+                total2020: Double(count) * cpt.rvu2020,
+                total2024: Double(count) * cpt.rvu2024
+            )
+        }
+
+        summaryRows = summaries
+        summaryTotals2020 = summaries.reduce(0.0) { $0 + $1.total2020 }
+        summaryTotals2024 = summaries.reduce(0.0) { $0 + $1.total2024 }
     }
 }
 

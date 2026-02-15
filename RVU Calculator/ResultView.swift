@@ -21,6 +21,7 @@ struct ResultView: View {
     let totalRVUs2020: Double
     let totalRVUs2024: Double
     let cptSummaries: [CPTSummary]
+    var onReturnToCalendar: (() -> Void)? = nil
 
     private var is2024Higher: Bool { totalRVUs2024 > totalRVUs2020 }
     private var is2020Higher: Bool { totalRVUs2020 > totalRVUs2024 }
@@ -138,6 +139,18 @@ struct ResultView: View {
                 )
                 .cornerRadius(12)
                 .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
+
+                if let onReturnToCalendar {
+                    Button(action: onReturnToCalendar) {
+                        Text("Return to Calendar")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(12)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                }
             }
             .padding(16)
         }
