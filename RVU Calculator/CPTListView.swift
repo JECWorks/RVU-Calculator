@@ -5,13 +5,139 @@
 //  Created by Jason Cox on 7/22/24.
 //
 import SwiftUI
+import SwiftData
 
 struct CPTListView: View {
+    @Query(sort: \DayRecord.date) private var records: [DayRecord]
+
+    @State private var selectedDate = Date()
+    @State private var selectedYear = Calendar.current.component(.year, from: Date())
+
+    private let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        return formatter
+    }()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding(12)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+
+                NavigationLink {
+                    DayChargeEntryView(date: selectedDate)
+                } label: {
+                    Text("Enter Charges for \(dayFormatter.string(from: selectedDate))")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+
+                monthTotalCard
+
+                yearSection
+            }
+            .padding(16)
+        }
+        .navigationTitle("Calendar RVU")
+        .onChange(of: selectedDate) { _, newDate in
+            selectedYear = Calendar.current.component(.year, from: newDate)
+        }
+    }
+
+    private var monthTotalCard: some View {
+        let totals = monthTotals(records: records, containing: selectedDate)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Month Totals")
+                .font(.headline)
+
+            Text(totals.monthLabel)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            HStack {
+                totalChip(title: "2020", value: totals.total2020, tint: Color.blue.opacity(0.12))
+                totalChip(title: "2024", value: totals.total2024, tint: Color.green.opacity(0.12))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+
+    private var yearSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Year View")
+                    .font(.headline)
+
+                Spacer()
+
+                Stepper("\(selectedYear)", value: $selectedYear, in: 2020...2100)
+                    .labelsHidden()
+
+                Text("\(selectedYear)")
+                    .font(.subheadline.monospacedDigit())
+            }
+
+            NavigationLink {
+                YearSummaryView(year: selectedYear)
+            } label: {
+                Text("View Monthly RVUs")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.teal)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+
+    private func totalChip(title: String, value: Double, tint: Color) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text("\(value, specifier: "%.2f")")
+                .font(.title3.monospacedDigit())
+                .fontWeight(.semibold)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .background(tint)
+        .cornerRadius(10)
+    }
+}
+
+struct DayChargeEntryView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    let date: Date
+
     @State private var chargeCounts: [Int: String] = [:]
-    @State private var totalRVUs2020: Double = 0
-    @State private var totalRVUs2024: Double = 0
-    @State private var cptSummaries: [CPTSummary] = []
-    @State private var navigateToResults = false
+    @State private var statusMessage: String?
+
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        return formatter
+    }()
 
     var body: some View {
         VStack(spacing: 12) {
@@ -52,66 +178,152 @@ struct CPTListView: View {
             }
             .listStyle(.plain)
 
-            Button(action: calculateTotals) {
-                Text("Calculate Total RVUs")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+            HStack(spacing: 10) {
+                Button(action: saveCharges) {
+                    Text("Save Charges")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+
+                Button(action: { dismiss() }) {
+                    Text("Back to Calendar")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.gray.opacity(0.2))
+                        .foregroundColor(.primary)
+                        .cornerRadius(10)
+                }
             }
             .padding(.horizontal)
             .padding(.bottom, 4)
+
+            if let statusMessage {
+                Text(statusMessage)
+                    .font(.subheadline)
+                    .foregroundColor(.green)
+                    .padding(.bottom, 8)
+            }
         }
-        .navigationTitle("CPT Charge Entry")
-        .navigationDestination(isPresented: $navigateToResults) {
-            ResultView(
-                totalRVUs2020: totalRVUs2020,
-                totalRVUs2024: totalRVUs2024,
-                cptSummaries: cptSummaries
-            )
-        }
+        .navigationTitle(dateFormatter.string(from: date))
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: loadForDate)
     }
 
     private func binding(for cpt: CPTCode) -> Binding<String> {
         Binding(
             get: { chargeCounts[cpt.id, default: ""] },
             set: { newValue in
-                let digitsOnly = newValue.filter(\.isNumber)
-                chargeCounts[cpt.id] = digitsOnly
+                chargeCounts[cpt.id] = newValue.filter(\.isNumber)
+                statusMessage = nil
             }
         )
     }
 
-    private func calculateTotals() {
-        cptSummaries = cptCodes.compactMap { cpt in
-            let count = Int(chargeCounts[cpt.id] ?? "") ?? 0
-            guard count > 0 else { return nil }
+    private func loadForDate() {
+        let key = DayRecord.key(for: date)
+        var descriptor = FetchDescriptor<DayRecord>(predicate: #Predicate { $0.dayKey == key })
+        descriptor.fetchLimit = 1
 
-            return CPTSummary(
-                id: cpt.id,
-                code: cpt.code,
-                count: count,
-                total2020: Double(count) * cpt.rvu2020,
-                total2024: Double(count) * cpt.rvu2024
-            )
+        let stored = (try? modelContext.fetch(descriptor).first)?.counts ?? [:]
+
+        chargeCounts = Dictionary(uniqueKeysWithValues: cptCodes.map { cpt in
+            let count = stored[cpt.id] ?? 0
+            return (cpt.id, count == 0 ? "" : String(count))
+        })
+    }
+
+    private func saveCharges() {
+        let normalized = chargeCounts.reduce(into: [Int: Int]()) { partialResult, item in
+            let count = Int(item.value) ?? 0
+            if count > 0 {
+                partialResult[item.key] = count
+            }
         }
 
-        totalRVUs2020 = cptCodes.reduce(0) { result, cpt in
-            let count = Int(chargeCounts[cpt.id] ?? "") ?? 0
-            return result + (Double(count) * cpt.rvu2020)
-        }
+        let key = DayRecord.key(for: date)
+        var descriptor = FetchDescriptor<DayRecord>(predicate: #Predicate { $0.dayKey == key })
+        descriptor.fetchLimit = 1
 
-        totalRVUs2024 = cptCodes.reduce(0) { result, cpt in
-            let count = Int(chargeCounts[cpt.id] ?? "") ?? 0
-            return result + (Double(count) * cpt.rvu2024)
-        }
+        do {
+            let existing = try modelContext.fetch(descriptor).first
 
-        navigateToResults = true
+            if let existing {
+                if normalized.isEmpty {
+                    modelContext.delete(existing)
+                } else {
+                    existing.date = DayRecord.startOfDay(for: date)
+                    existing.counts = normalized
+                }
+            } else if !normalized.isEmpty {
+                modelContext.insert(DayRecord(date: date, counts: normalized))
+            }
+
+            try modelContext.save()
+            statusMessage = normalized.isEmpty
+                ? "Saved empty day (record removed)."
+                : "Saved for \(dateFormatter.string(from: date))."
+        } catch {
+            statusMessage = "Unable to save. Please try again."
+        }
     }
 }
 
-//#Preview {
-//    CPTListView()
-//}
+struct YearSummaryView: View {
+    @Query(sort: \DayRecord.date) private var records: [DayRecord]
+
+    let year: Int
+
+    var body: some View {
+        let perMonth = monthlyTotals(records: records, year: year)
+
+        List {
+            Section {
+                ForEach(perMonth) { month in
+                    HStack {
+                        Text(month.monthName)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text("\(month.total2020, specifier: "%.2f")")
+                            .font(.body.monospacedDigit())
+                            .frame(width: 96, alignment: .trailing)
+
+                        Text("\(month.total2024, specifier: "%.2f")")
+                            .font(.body.monospacedDigit())
+                            .frame(width: 96, alignment: .trailing)
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                HStack {
+                    Text("Month")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("2020")
+                        .frame(width: 96, alignment: .trailing)
+                    Text("2024")
+                        .frame(width: 96, alignment: .trailing)
+                }
+                .font(.subheadline.bold())
+            }
+
+            Section("Year Total") {
+                HStack {
+                    Text("Total")
+                    Spacer()
+                    Text("\(perMonth.reduce(0.0) { $0 + $1.total2020 }, specifier: "%.2f")")
+                        .font(.body.monospacedDigit())
+                        .frame(width: 96, alignment: .trailing)
+                    Text("\(perMonth.reduce(0.0) { $0 + $1.total2024 }, specifier: "%.2f")")
+                        .font(.body.monospacedDigit())
+                        .frame(width: 96, alignment: .trailing)
+                }
+                .fontWeight(.semibold)
+            }
+        }
+        .navigationTitle("\(year) Monthly RVUs")
+    }
+}
