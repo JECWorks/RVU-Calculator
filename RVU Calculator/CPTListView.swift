@@ -22,8 +22,10 @@ struct CPTListView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
-                    .datePickerStyle(.graphical)
+                RVUCalendarView(
+                    selectedDate: $selectedDate,
+                    datesWithEntries: Set(records.map(\.dayKey))
+                )
                     .padding(12)
                     .background(Color(.systemBackground))
                     .cornerRadius(12)
@@ -121,6 +123,145 @@ struct CPTListView: View {
         .frame(maxWidth: .infinity)
         .background(tint)
         .cornerRadius(10)
+    }
+}
+
+struct RVUCalendarView: View {
+    @Binding var selectedDate: Date
+    let datesWithEntries: Set<String>
+
+    @State private var displayedMonth: Date
+
+    init(selectedDate: Binding<Date>, datesWithEntries: Set<String>) {
+        self._selectedDate = selectedDate
+        self.datesWithEntries = datesWithEntries
+        let month = Calendar.current.date(
+            from: Calendar.current.dateComponents([.year, .month], from: selectedDate.wrappedValue)
+        ) ?? selectedDate.wrappedValue
+        self._displayedMonth = State(initialValue: month)
+    }
+
+    private var monthTitle: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: displayedMonth)
+    }
+
+    private var weekdaySymbols: [String] {
+        let calendar = Calendar.current
+        let symbols = calendar.shortStandaloneWeekdaySymbols
+        let first = calendar.firstWeekday - 1
+        return Array(symbols[first...] + symbols[..<first])
+    }
+
+    private var dayGrid: [Date?] {
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: displayedMonth)
+        ) ?? displayedMonth
+        let dayRange = calendar.range(of: .day, in: .month, for: startOfMonth) ?? 1..<2
+        let firstWeekday = calendar.component(.weekday, from: startOfMonth)
+        let leadingSlots = (firstWeekday - calendar.firstWeekday + 7) % 7
+
+        var days = Array<Date?>(repeating: nil, count: leadingSlots)
+        for day in dayRange {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                days.append(date)
+            }
+        }
+        while days.count % 7 != 0 {
+            days.append(nil)
+        }
+        return days
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Button {
+                    if let newMonth = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) {
+                        displayedMonth = newMonth
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Text(monthTitle)
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    if let newMonth = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) {
+                        displayedMonth = newMonth
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.plain)
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
+                ForEach(weekdaySymbols, id: \.self) { symbol in
+                    Text(symbol)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+
+                ForEach(Array(dayGrid.enumerated()), id: \.offset) { _, value in
+                    if let date = value {
+                        DayCell(
+                            date: date,
+                            isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
+                            hasEntry: datesWithEntries.contains(DayRecord.key(for: date))
+                        ) {
+                            selectedDate = date
+                            displayedMonth = Calendar.current.date(
+                                from: Calendar.current.dateComponents([.year, .month], from: date)
+                            ) ?? date
+                        }
+                    } else {
+                        Color.clear
+                            .frame(height: 32)
+                    }
+                }
+            }
+        }
+        .onChange(of: selectedDate) { _, newDate in
+            let selectedMonth = Calendar.current.date(
+                from: Calendar.current.dateComponents([.year, .month], from: newDate)
+            ) ?? newDate
+            if !Calendar.current.isDate(selectedMonth, equalTo: displayedMonth, toGranularity: .month) {
+                displayedMonth = selectedMonth
+            }
+        }
+    }
+}
+
+private struct DayCell: View {
+    let date: Date
+    let isSelected: Bool
+    let hasEntry: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("\(Calendar.current.component(.day, from: date))")
+                .font(.body.monospacedDigit())
+                .fontWeight(hasEntry ? .bold : .regular)
+                .foregroundColor(isSelected ? .white : (hasEntry ? .green : .primary))
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .background(
+                    Circle()
+                        .fill(isSelected ? Color.blue : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
