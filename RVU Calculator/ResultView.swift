@@ -157,6 +157,7 @@ struct ResultView: View {
         .navigationTitle("Results")
     }
 
+    // ## Renders one schedule total card with optional emphasis and change badge.
     private func totalCard(title: String, value: Double, tint: Color, emphasized: Bool, badge: String?) -> some View {
         VStack(spacing: 10) {
             Text(title)

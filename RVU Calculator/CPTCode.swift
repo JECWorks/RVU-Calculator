@@ -38,10 +38,12 @@ final class DayRecord {
         }
     }
 
+    // ## Normalizes a timestamp to local calendar day boundaries for storage consistency.
     static func startOfDay(for date: Date) -> Date {
         Calendar.current.startOfDay(for: date)
     }
 
+    // ## Builds a stable yyyy-MM-dd key used for unique day record lookup.
     static func key(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
@@ -51,6 +53,7 @@ final class DayRecord {
         return formatter.string(from: startOfDay(for: date))
     }
 
+    // ## Serializes positive CPT counts to JSON data for persistence.
     private static func encode(_ counts: [Int: Int]) -> Data {
         let cleaned = counts
             .filter { $0.value > 0 }
@@ -61,6 +64,7 @@ final class DayRecord {
         return (try? JSONEncoder().encode(cleaned)) ?? Data()
     }
 
+    // ## Deserializes persisted CPT counts and filters invalid/zero entries.
     private static func decode(_ data: Data) -> [Int: Int] {
         guard
             let decoded = try? JSONDecoder().decode([String: Int].self, from: data)
@@ -84,6 +88,7 @@ struct MonthlyRVUTotal: Identifiable {
     let total2024: Double
 }
 
+// ## Computes aggregate RVU totals for both fee schedules from CPT counts.
 func rvuTotals(for counts: [Int: Int]) -> (total2020: Double, total2024: Double) {
     let cptByID = Dictionary(uniqueKeysWithValues: cptCodes.map { ($0.id, $0) })
 
@@ -100,6 +105,7 @@ func rvuTotals(for counts: [Int: Int]) -> (total2020: Double, total2024: Double)
     return (total2020, total2024)
 }
 
+// ## Computes monthly RVU totals for the month containing the provided date.
 func monthTotals(records: [DayRecord], containing date: Date) -> (monthLabel: String, total2020: Double, total2024: Double) {
     let calendar = Calendar.current
     guard let monthInterval = calendar.dateInterval(of: .month, for: date) else {
@@ -120,6 +126,7 @@ func monthTotals(records: [DayRecord], containing date: Date) -> (monthLabel: St
     return (formatter.string(from: monthInterval.start), monthAggregate.0, monthAggregate.1)
 }
 
+// ## Produces month-by-month RVU totals for the selected calendar year.
 func monthlyTotals(records: [DayRecord], year: Int) -> [MonthlyRVUTotal] {
     let calendar = Calendar.current
 

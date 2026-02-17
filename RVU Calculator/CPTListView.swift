@@ -19,6 +19,7 @@ struct CPTListView: View {
         return formatter
     }()
 
+    // ## Formats a year value for display without locale-specific punctuation.
     private func plainYearString(_ year: Int) -> String {
         String(year)
     }
@@ -114,6 +115,7 @@ struct CPTListView: View {
         .cornerRadius(12)
     }
 
+    // ## Renders a compact metric chip for monthly RVU totals.
     private func totalChip(title: String, value: Double, tint: Color) -> some View {
         VStack(spacing: 6) {
             Text(title)
@@ -376,6 +378,7 @@ struct DayChargeEntryView: View {
         }
     }
 
+    // ## Provides numeric-only text binding for a CPT row count input.
     private func binding(for cpt: CPTCode) -> Binding<String> {
         Binding(
             get: { chargeCounts[cpt.id, default: ""] },
@@ -386,6 +389,7 @@ struct DayChargeEntryView: View {
         )
     }
 
+    // ## Loads saved charge counts for the selected day into editable state.
     private func loadForDate() {
         let key = DayRecord.key(for: date)
         var descriptor = FetchDescriptor<DayRecord>(predicate: #Predicate { $0.dayKey == key })
@@ -399,6 +403,7 @@ struct DayChargeEntryView: View {
         })
     }
 
+    // ## Persists current day charges and presents the calculated result summary.
     private func saveCharges() {
         let normalized = chargeCounts.reduce(into: [Int: Int]()) { partialResult, item in
             let count = Int(item.value) ?? 0
@@ -434,6 +439,7 @@ struct DayChargeEntryView: View {
         }
     }
 
+    // ## Builds per-code and total RVU summary values from normalized charge counts.
     private func buildSummary(from counts: [Int: Int]) {
         let summaries = cptCodes.compactMap { cpt -> CPTSummary? in
             let count = counts[cpt.id] ?? 0
