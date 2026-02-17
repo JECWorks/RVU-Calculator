@@ -1,0 +1,9 @@
+# Xcode user and build artifacts
+DerivedData/
+.build/
+
+# Xcode logs and temporary files
+*.xcactivitylog
+
+# macOS metadata
+.DS_Store

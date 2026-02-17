@@ -19,6 +19,10 @@ struct CPTListView: View {
         return formatter
     }()
 
+    private func plainYearString(_ year: Int) -> String {
+        String(year)
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -88,7 +92,7 @@ struct CPTListView: View {
                 Stepper("", value: $selectedYear, in: 2020...2100)
                     .labelsHidden()
 
-                Text(String(selectedYear))
+                Text(plainYearString(selectedYear))
                     .font(.subheadline.monospacedDigit())
             }
 
@@ -455,6 +459,10 @@ struct YearSummaryView: View {
 
     let year: Int
 
+    private var plainYearString: String {
+        String(year)
+    }
+
     var body: some View {
         let perMonth = monthlyTotals(records: records, year: year)
 
@@ -501,6 +509,6 @@ struct YearSummaryView: View {
                 .fontWeight(.semibold)
             }
         }
-        .navigationTitle("\(year) Monthly RVUs")
+        .navigationTitle("\(plainYearString) Monthly RVUs")
     }
 }
