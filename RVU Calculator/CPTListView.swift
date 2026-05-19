@@ -7,6 +7,35 @@
 import SwiftUI
 import SwiftData
 
+private extension Color {
+    static var rvuSystemBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
+    }
+
+    static var rvuSecondarySystemBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .underPageBackgroundColor)
+        #else
+        Color(uiColor: .secondarySystemBackground)
+        #endif
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func rvuInlineNavigationTitle() -> some View {
+        #if os(iOS)
+        navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+}
+
 struct CPTListView: View {
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
@@ -32,7 +61,7 @@ struct CPTListView: View {
                     datesWithEntries: Set(records.map(\.dayKey))
                 )
                     .padding(12)
-                    .background(Color(.systemBackground))
+                    .background(Color.rvuSystemBackground)
                     .cornerRadius(12)
                     .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
 
@@ -78,7 +107,7 @@ struct CPTListView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Color.rvuSecondarySystemBackground)
         .cornerRadius(12)
     }
 
@@ -111,7 +140,7 @@ struct CPTListView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Color.rvuSecondarySystemBackground)
         .cornerRadius(12)
     }
 
@@ -306,26 +335,23 @@ struct DayChargeEntryView: View {
 
             Divider()
 
-            List(cptCodes) { cpt in
-                HStack(alignment: .center, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(cpt.code)
-                            .font(.headline)
-                        Text(cpt.description)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+            List {
+                ForEach(Array(cptCodes.enumerated()), id: \.offset) { _, cpt in
+                    HStack(alignment: .center, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(cpt.code)
+                                .font(.headline)
+                            Text(cpt.description)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        countField(for: cpt)
                     }
-
-                    Spacer()
-
-                    TextField("0", text: binding(for: cpt))
-                        .font(.body.monospacedDigit())
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
-                        .frame(width: 80)
-                        .textFieldStyle(.roundedBorder)
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
             .listStyle(.plain)
 
@@ -361,7 +387,7 @@ struct DayChargeEntryView: View {
             }
         }
         .navigationTitle(dateFormatter.string(from: date))
-        .navigationBarTitleDisplayMode(.inline)
+        .rvuInlineNavigationTitle()
         .onAppear(perform: loadForDate)
         .sheet(isPresented: $showSummary) {
             NavigationStack {
@@ -387,6 +413,25 @@ struct DayChargeEntryView: View {
                 statusMessage = nil
             }
         )
+    }
+
+    // ## Keeps the row input portable while preserving the iOS numeric keyboard.
+    @ViewBuilder
+    private func countField(for cpt: CPTCode) -> some View {
+        #if os(iOS)
+        TextField("0", text: binding(for: cpt))
+            .font(.body.monospacedDigit())
+            .multilineTextAlignment(.trailing)
+            .keyboardType(.numberPad)
+            .frame(width: 80)
+            .textFieldStyle(.roundedBorder)
+        #else
+        TextField("0", text: binding(for: cpt))
+            .font(.body.monospacedDigit())
+            .multilineTextAlignment(.trailing)
+            .frame(width: 80)
+            .textFieldStyle(.roundedBorder)
+        #endif
     }
 
     // ## Loads saved charge counts for the selected day into editable state.
