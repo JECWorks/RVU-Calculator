@@ -38,6 +38,10 @@ private extension View {
 
 struct CPTListView: View {
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
+    @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
+    @AppStorage("singleRVUYear") private var singleRVUYear = 2026
+    @AppStorage("baseRVUYear") private var baseRVUYear = 2024
+    @AppStorage("comparisonRVUYear") private var comparisonRVUYear = 2026
 
     @State private var selectedDate = Date()
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
@@ -47,6 +51,15 @@ struct CPTListView: View {
         formatter.dateStyle = .full
         return formatter
     }()
+
+    private var selectedScheduleYears: [Int] {
+        selectedRVUYears(
+            modeRaw: scheduleModeRaw,
+            singleYear: singleRVUYear,
+            baseYear: baseRVUYear,
+            comparisonYear: comparisonRVUYear
+        )
+    }
 
     // ## Formats a year value for display without locale-specific punctuation.
     private func plainYearString(_ year: Int) -> String {
@@ -77,6 +90,8 @@ struct CPTListView: View {
                         .cornerRadius(10)
                 }
 
+                ScheduleControls()
+
                 monthTotalCard
 
                 yearSection
@@ -90,7 +105,7 @@ struct CPTListView: View {
     }
 
     private var monthTotalCard: some View {
-        let totals = monthTotals(records: records, containing: selectedDate)
+        let totals = monthTotals(records: records, containing: selectedDate, years: selectedScheduleYears)
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("Month Totals")
@@ -101,8 +116,13 @@ struct CPTListView: View {
                 .foregroundColor(.secondary)
 
             HStack {
-                totalChip(title: "2020", value: totals.total2020, tint: Color.blue.opacity(0.12))
-                totalChip(title: "2024", value: totals.total2024, tint: Color.green.opacity(0.12))
+                ForEach(Array(selectedScheduleYears.enumerated()), id: \.element) { index, year in
+                    totalChip(
+                        title: String(year),
+                        value: totals.totalsByYear[year, default: 0],
+                        tint: index == 0 ? Color.blue.opacity(0.12) : Color.green.opacity(0.12)
+                    )
+                }
             }
         }
         .padding(14)
@@ -127,7 +147,7 @@ struct CPTListView: View {
             }
 
             NavigationLink {
-                YearSummaryView(year: selectedYear)
+                YearSummaryView(year: selectedYear, scheduleYears: selectedScheduleYears)
             } label: {
                 Text("View Monthly RVUs")
                     .fontWeight(.semibold)
@@ -158,6 +178,67 @@ struct CPTListView: View {
         .frame(maxWidth: .infinity)
         .background(tint)
         .cornerRadius(10)
+    }
+}
+
+private func selectedRVUYears(modeRaw: String, singleYear: Int, baseYear: Int, comparisonYear: Int) -> [Int] {
+    let mode = RVUScheduleMode(rawValue: modeRaw) ?? .compare
+    switch mode {
+    case .single:
+        return [singleYear]
+    case .compare:
+        return baseYear == comparisonYear ? [baseYear] : [baseYear, comparisonYear]
+    }
+}
+
+private struct ScheduleControls: View {
+    @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
+    @AppStorage("singleRVUYear") private var singleRVUYear = 2026
+    @AppStorage("baseRVUYear") private var baseRVUYear = 2024
+    @AppStorage("comparisonRVUYear") private var comparisonRVUYear = 2026
+
+    private var scheduleMode: Binding<String> {
+        Binding(
+            get: { scheduleModeRaw },
+            set: { scheduleModeRaw = $0 }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("RVU Schedule")
+                .font(.headline)
+
+            Picker("Mode", selection: scheduleMode) {
+                ForEach(RVUScheduleMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if (RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare) == .single {
+                yearPicker("Year", selection: $singleRVUYear)
+            } else {
+                HStack {
+                    yearPicker("Base", selection: $baseRVUYear)
+                    yearPicker("Compare", selection: $comparisonRVUYear)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.rvuSecondarySystemBackground)
+        .cornerRadius(12)
+    }
+
+    private func yearPicker(_ title: String, selection: Binding<Int>) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(supportedRVUYears, id: \.self) { year in
+                Text(String(year)).tag(year)
+            }
+        }
+        .pickerStyle(.menu)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -303,13 +384,19 @@ private struct DayCell: View {
 struct DayChargeEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
+    @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
+    @AppStorage("singleRVUYear") private var singleRVUYear = 2026
+    @AppStorage("baseRVUYear") private var baseRVUYear = 2024
+    @AppStorage("comparisonRVUYear") private var comparisonRVUYear = 2026
 
     let date: Date
 
     @State private var chargeCounts: [Int: String] = [:]
+    @State private var extraCodeIDs: Set<Int> = []
+    @State private var searchText = ""
     @State private var statusMessage: String?
-    @State private var summaryTotals2020: Double = 0
-    @State private var summaryTotals2024: Double = 0
+    @State private var summaryTotalsByYear: [Int: Double] = [:]
     @State private var summaryRows: [CPTSummary] = []
     @State private var showSummary = false
 
@@ -319,38 +406,87 @@ struct DayChargeEntryView: View {
         return formatter
     }()
 
+    private var selectedProfile: ProviderProfile {
+        ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist
+    }
+
+    private var selectedScheduleYears: [Int] {
+        selectedRVUYears(
+            modeRaw: scheduleModeRaw,
+            singleYear: singleRVUYear,
+            baseYear: baseRVUYear,
+            comparisonYear: comparisonRVUYear
+        )
+    }
+
+    private var profileCodes: [CPTCode] {
+        cptCodes.filter { $0.profiles.contains(selectedProfile) }
+    }
+
+    private var additionalCodes: [CPTCode] {
+        cptCodes.filter { cpt in
+            !cpt.profiles.contains(selectedProfile)
+                && (extraCodeIDs.contains(cpt.id) || ((Int(chargeCounts[cpt.id, default: ""]) ?? 0) > 0))
+        }
+    }
+
+    private var searchResults: [CPTCode] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return [] }
+
+        return cptCodes
+            .filter { cpt in
+                !cpt.profiles.contains(selectedProfile)
+                    && !additionalCodes.contains { $0.id == cpt.id }
+                    && (cpt.code.localizedCaseInsensitiveContains(query)
+                        || cpt.description.localizedCaseInsensitiveContains(query))
+            }
+            .prefix(8)
+            .map { $0 }
+    }
+
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
-                Text("CPT")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("Count")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .frame(width: 80, alignment: .trailing)
-            }
-            .padding(.horizontal)
+            profilePicker
+                .padding(.horizontal)
 
-            Divider()
+            ScheduleControls()
+                .padding(.horizontal)
 
             List {
-                ForEach(Array(cptCodes.enumerated()), id: \.offset) { _, cpt in
-                    HStack(alignment: .center, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(cpt.code)
-                                .font(.headline)
-                            Text(cpt.description)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer()
-
-                        countField(for: cpt)
+                Section("Profile Codes") {
+                    ForEach(profileCodes) { cpt in
+                        codeRow(for: cpt)
                     }
-                    .padding(.vertical, 4)
+                }
+
+                Section("Search All Codes") {
+                    TextField("Search CPT or description", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+
+                    ForEach(searchResults) { cpt in
+                        Button {
+                            extraCodeIDs.insert(cpt.id)
+                            chargeCounts[cpt.id, default: ""] = chargeCounts[cpt.id, default: ""]
+                            searchText = ""
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(cpt.code)
+                                    .font(.headline)
+                                Text(cpt.description)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                if !additionalCodes.isEmpty {
+                    Section("Additional Charged Codes") {
+                        ForEach(additionalCodes) { cpt in
+                            codeRow(for: cpt)
+                        }
+                    }
                 }
             }
             .listStyle(.plain)
@@ -392,8 +528,8 @@ struct DayChargeEntryView: View {
         .sheet(isPresented: $showSummary) {
             NavigationStack {
                 ResultView(
-                    totalRVUs2020: summaryTotals2020,
-                    totalRVUs2024: summaryTotals2024,
+                    scheduleYears: selectedScheduleYears,
+                    totalsByYear: summaryTotalsByYear,
                     cptSummaries: summaryRows,
                     onReturnToCalendar: {
                         showSummary = false
@@ -402,6 +538,45 @@ struct DayChargeEntryView: View {
                 )
             }
         }
+    }
+
+    private var profilePicker: some View {
+        HStack {
+            Text("Profile")
+                .font(.headline)
+
+            Spacer()
+
+            Picker("Profile", selection: $selectedProfileRaw) {
+                ForEach(ProviderProfile.allCases) { profile in
+                    Text(profile.displayName).tag(profile.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
+    private func codeRow(for cpt: CPTCode) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(cpt.code)
+                    .font(.headline)
+                Text(cpt.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                if let warning = cpt.warning {
+                    Text(warning)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+
+            Spacer()
+
+            countField(for: cpt)
+        }
+        .padding(.vertical, 4)
     }
 
     // ## Provides numeric-only text binding for a CPT row count input.
@@ -446,6 +621,7 @@ struct DayChargeEntryView: View {
             let count = stored[cpt.id] ?? 0
             return (cpt.id, count == 0 ? "" : String(count))
         })
+        extraCodeIDs = Set(stored.keys).subtracting(profileCodes.map(\.id))
     }
 
     // ## Persists current day charges and presents the calculated result summary.
@@ -490,18 +666,25 @@ struct DayChargeEntryView: View {
             let count = counts[cpt.id] ?? 0
             guard count > 0 else { return nil }
 
+            let totalsByYear = selectedScheduleYears.reduce(into: [Int: Double]()) { partialResult, year in
+                if let rvu = cpt.rvu(for: year) {
+                    partialResult[year] = Double(count) * rvu
+                }
+            }
+
             return CPTSummary(
                 id: cpt.id,
                 code: cpt.code,
                 count: count,
-                total2020: Double(count) * cpt.rvu2020,
-                total2024: Double(count) * cpt.rvu2024
+                totalsByYear: totalsByYear,
+                warning: cpt.warning
             )
         }
 
         summaryRows = summaries
-        summaryTotals2020 = summaries.reduce(0.0) { $0 + $1.total2020 }
-        summaryTotals2024 = summaries.reduce(0.0) { $0 + $1.total2024 }
+        summaryTotalsByYear = selectedScheduleYears.reduce(into: [Int: Double]()) { partialResult, year in
+            partialResult[year] = summaries.reduce(0.0) { $0 + $1.totalsByYear[year, default: 0] }
+        }
     }
 }
 
@@ -509,13 +692,14 @@ struct YearSummaryView: View {
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
     let year: Int
+    let scheduleYears: [Int]
 
     private var plainYearString: String {
         String(year)
     }
 
     var body: some View {
-        let perMonth = monthlyTotals(records: records, year: year)
+        let perMonth = monthlyTotals(records: records, year: year, scheduleYears: scheduleYears)
 
         List {
             Section {
@@ -524,13 +708,11 @@ struct YearSummaryView: View {
                         Text(month.monthName)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text("\(month.total2020, specifier: "%.2f")")
-                            .font(.body.monospacedDigit())
-                            .frame(width: 96, alignment: .trailing)
-
-                        Text("\(month.total2024, specifier: "%.2f")")
-                            .font(.body.monospacedDigit())
-                            .frame(width: 96, alignment: .trailing)
+                        ForEach(scheduleYears, id: \.self) { scheduleYear in
+                            Text("\(month.totalsByYear[scheduleYear, default: 0], specifier: "%.2f")")
+                                .font(.body.monospacedDigit())
+                                .frame(width: 96, alignment: .trailing)
+                        }
                     }
                     .padding(.vertical, 2)
                 }
@@ -538,10 +720,10 @@ struct YearSummaryView: View {
                 HStack {
                     Text("Month")
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("2020")
-                        .frame(width: 96, alignment: .trailing)
-                    Text("2024")
-                        .frame(width: 96, alignment: .trailing)
+                    ForEach(scheduleYears, id: \.self) { scheduleYear in
+                        Text(String(scheduleYear))
+                            .frame(width: 96, alignment: .trailing)
+                    }
                 }
                 .font(.subheadline.bold())
             }
@@ -550,12 +732,11 @@ struct YearSummaryView: View {
                 HStack {
                     Text("Total")
                     Spacer()
-                    Text("\(perMonth.reduce(0.0) { $0 + $1.total2020 }, specifier: "%.2f")")
-                        .font(.body.monospacedDigit())
-                        .frame(width: 96, alignment: .trailing)
-                    Text("\(perMonth.reduce(0.0) { $0 + $1.total2024 }, specifier: "%.2f")")
-                        .font(.body.monospacedDigit())
-                        .frame(width: 96, alignment: .trailing)
+                    ForEach(scheduleYears, id: \.self) { scheduleYear in
+                        Text("\(perMonth.reduce(0.0) { $0 + $1.totalsByYear[scheduleYear, default: 0] }, specifier: "%.2f")")
+                            .font(.body.monospacedDigit())
+                            .frame(width: 96, alignment: .trailing)
+                    }
                 }
                 .fontWeight(.semibold)
             }

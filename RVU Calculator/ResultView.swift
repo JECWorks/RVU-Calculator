@@ -11,29 +11,38 @@ struct CPTSummary: Identifiable {
     let id: Int
     let code: String
     let count: Int
-    let total2020: Double
-    let total2024: Double
+    let totalsByYear: [Int: Double]
+    let warning: String?
 }
 
 struct ResultView: View {
     @Environment(\.colorScheme) private var colorScheme
 
-    let totalRVUs2020: Double
-    let totalRVUs2024: Double
+    let scheduleYears: [Int]
+    let totalsByYear: [Int: Double]
     let cptSummaries: [CPTSummary]
     var onReturnToCalendar: (() -> Void)? = nil
 
-    private var is2024Higher: Bool { totalRVUs2024 > totalRVUs2020 }
-    private var is2020Higher: Bool { totalRVUs2020 > totalRVUs2024 }
+    private var firstYear: Int? { scheduleYears.first }
+    private var secondYear: Int? { scheduleYears.dropFirst().first }
     private var totalBlueCardTint: Color { colorScheme == .dark ? Color.blue.opacity(0.24) : Color.blue.opacity(0.12) }
     private var totalGreenCardTint: Color { colorScheme == .dark ? Color.green.opacity(0.24) : Color.green.opacity(0.12) }
     private var cptBlueChipBackground: Color { colorScheme == .dark ? Color.blue.opacity(0.30) : Color.blue.opacity(0.14) }
     private var cptGreenChipBackground: Color { colorScheme == .dark ? Color.green.opacity(0.30) : Color.green.opacity(0.14) }
 
-    private var changeText: String {
-        guard totalRVUs2020 > 0 else { return "N/A" }
-        let pct = ((totalRVUs2024 - totalRVUs2020) / totalRVUs2020) * 100
-        return String(format: "%+.1f%% vs 2020", pct)
+    private var changeText: String? {
+        guard
+            let firstYear,
+            let secondYear,
+            let base = totalsByYear[firstYear],
+            base > 0,
+            let comparison = totalsByYear[secondYear]
+        else {
+            return nil
+        }
+
+        let pct = ((comparison - base) / base) * 100
+        return String(format: "%+.1f%% vs %d", pct, firstYear)
     }
 
     var body: some View {
@@ -45,21 +54,15 @@ struct ResultView: View {
                     .padding(.top, 4)
 
                 HStack(spacing: 12) {
-                    totalCard(
-                        title: "2020 Schedule",
-                        value: totalRVUs2020,
-                        tint: totalBlueCardTint,
-                        emphasized: is2020Higher,
-                        badge: nil
-                    )
-
-                    totalCard(
-                        title: "2024 Schedule",
-                        value: totalRVUs2024,
-                        tint: totalGreenCardTint,
-                        emphasized: is2024Higher,
-                        badge: changeText
-                    )
+                    ForEach(Array(scheduleYears.enumerated()), id: \.element) { index, year in
+                        totalCard(
+                            title: "\(year) Schedule",
+                            value: totalsByYear[year, default: 0],
+                            tint: index == 0 ? totalBlueCardTint : totalGreenCardTint,
+                            emphasized: emphasizedYear == year,
+                            badge: year == secondYear ? changeText : nil
+                        )
+                    }
                 }
 
                 VStack(spacing: 10) {
@@ -68,24 +71,7 @@ struct ResultView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    HStack {
-                        Text("CPT")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text("2020")
-                            .frame(width: 96, alignment: .trailing)
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 6)
-                            .background(cptBlueChipBackground)
-                            .cornerRadius(6)
-                        Text("2024")
-                            .frame(width: 96, alignment: .trailing)
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 6)
-                            .background(cptGreenChipBackground)
-                            .cornerRadius(6)
-                    }
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 6)
+                    headerRow
 
                     Divider()
 
@@ -97,23 +83,27 @@ struct ResultView: View {
                             .padding(.vertical, 6)
                     } else {
                         ForEach(Array(cptSummaries.enumerated()), id: \.element.id) { index, summary in
-                            HStack {
-                                Text("\(summary.code) x\(summary.count)")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("\(summary.total2020, specifier: "%.2f")")
-                                    .font(.body.monospacedDigit())
-                                    .frame(width: 96, alignment: .trailing)
-                                    .padding(.vertical, 4)
-                                    .padding(.horizontal, 6)
-                                    .background(cptBlueChipBackground)
-                                    .cornerRadius(6)
-                                Text("\(summary.total2024, specifier: "%.2f")")
-                                    .font(.body.monospacedDigit())
-                                    .frame(width: 96, alignment: .trailing)
-                                    .padding(.vertical, 4)
-                                    .padding(.horizontal, 6)
-                                    .background(cptGreenChipBackground)
-                                    .cornerRadius(6)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("\(summary.code) x\(summary.count)")
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                    ForEach(Array(scheduleYears.enumerated()), id: \.element) { yearIndex, year in
+                                        Text(valueText(summary.totalsByYear[year]))
+                                            .font(.body.monospacedDigit())
+                                            .frame(width: 96, alignment: .trailing)
+                                            .padding(.vertical, 4)
+                                            .padding(.horizontal, 6)
+                                            .background(yearIndex == 0 ? cptBlueChipBackground : cptGreenChipBackground)
+                                            .cornerRadius(6)
+                                    }
+                                }
+
+                                if let warning = summary.warning {
+                                    Text(warning)
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
                             }
                             .font(.subheadline)
                             .padding(.horizontal, 6)
@@ -157,6 +147,34 @@ struct ResultView: View {
         .navigationTitle("Results")
     }
 
+    private var emphasizedYear: Int? {
+        guard scheduleYears.count == 2 else { return nil }
+        return scheduleYears.max { totalsByYear[$0, default: 0] < totalsByYear[$1, default: 0] }
+    }
+
+    private var headerRow: some View {
+        HStack {
+            Text("CPT")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            ForEach(Array(scheduleYears.enumerated()), id: \.element) { index, year in
+                Text(String(year))
+                    .frame(width: 96, alignment: .trailing)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 6)
+                    .background(index == 0 ? cptBlueChipBackground : cptGreenChipBackground)
+                    .cornerRadius(6)
+            }
+        }
+        .font(.subheadline.bold())
+        .padding(.horizontal, 6)
+    }
+
+    private func valueText(_ value: Double?) -> String {
+        guard let value else { return "N/A" }
+        return String(format: "%.2f", value)
+    }
+
     // ## Renders one schedule total card with optional emphasis and change badge.
     private func totalCard(title: String, value: Double, tint: Color, emphasized: Bool, badge: String?) -> some View {
         VStack(spacing: 10) {
@@ -188,6 +206,3 @@ struct ResultView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 }
-//#Preview {
-//    ResultView()
-//}
