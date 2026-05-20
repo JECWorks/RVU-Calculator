@@ -45,7 +45,7 @@ enum RVUScheduleMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    // Human-readable label used in the schedule mode segmented control.
+    // Label used in the schedule mode segmented control.
     var displayName: String {
         switch self {
         case .single: "Single Year"
