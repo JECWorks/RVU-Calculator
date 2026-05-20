@@ -8,6 +8,8 @@
 import Foundation
 import SwiftData
 
+// Groups the CPT/HCPCS catalog into clinician-facing charge-entry profiles.
+// The raw value is stored in AppStorage, so keep these case names stable.
 enum ProviderProfile: String, CaseIterable, Identifiable {
     case hospitalist
     case criticalCare
@@ -20,6 +22,7 @@ enum ProviderProfile: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    // Human-readable label used in the profile picker.
     var displayName: String {
         switch self {
         case .hospitalist: "Hospitalist"
@@ -34,12 +37,15 @@ enum ProviderProfile: String, CaseIterable, Identifiable {
     }
 }
 
+// Controls whether the UI shows one RVU schedule or compares two schedules.
+// The raw value is stored in AppStorage, so keep these case names stable.
 enum RVUScheduleMode: String, CaseIterable, Identifiable {
     case single
     case compare
 
     var id: String { rawValue }
 
+    // Human-readable label used in the schedule mode segmented control.
     var displayName: String {
         switch self {
         case .single: "Single Year"
@@ -48,8 +54,11 @@ enum RVUScheduleMode: String, CaseIterable, Identifiable {
     }
 }
 
+// The curated schedule years available in the app's static RVU catalog.
 let supportedRVUYears = [2020, 2024, 2026]
 
+// Describes one billable CPT/HCPCS row in the curated catalog.
+// IDs are persisted in DayRecord.countsData, so existing ids should not be reused.
 struct CPTCode: Identifiable {
     let id: Int
     let code: String
@@ -58,6 +67,7 @@ struct CPTCode: Identifiable {
     let rvusByYear: [Int: Double]
     let warning: String?
 
+    // The initializer keeps warning optional so most catalog rows stay compact.
     init(
         id: Int,
         code: String,
@@ -74,11 +84,15 @@ struct CPTCode: Identifiable {
         self.warning = warning
     }
 
+    // Returns nil when a code was not priced in the selected schedule year.
+    // The UI displays those missing per-code values as N/A and excludes them from totals.
     func rvu(for year: Int) -> Double? {
         rvusByYear[year]
     }
 }
 
+// One saved day of charge counts. The model stores CPT ids and counts as JSON
+// so the SwiftData schema can stay stable as the static catalog expands.
 @Model
 final class DayRecord {
     @Attribute(.unique) var dayKey: String
@@ -92,6 +106,7 @@ final class DayRecord {
         self.countsData = DayRecord.encode(counts)
     }
 
+    // Decoded view of countsData. Keys are CPTCode.id values, not CPT code strings.
     var counts: [Int: Int] {
         get {
             DayRecord.decode(countsData)
@@ -143,6 +158,7 @@ final class DayRecord {
     }
 }
 
+// Month summary row used by the yearly totals screen.
 struct MonthlyRVUTotal: Identifiable {
     var id: Int { month }
     let month: Int
@@ -208,10 +224,12 @@ func monthlyTotals(records: [DayRecord], year: Int, scheduleYears: [Int]) -> [Mo
     }
 }
 
+// Warnings are intentionally centralized so repeated catalog rows share exact wording.
 private let consultWarning = "Inpatient consult codes may not be recognized by some payors; consider changing to initial visit codes instead."
 private let legacyProlongedWarning = "Legacy prolonged inpatient codes are retained for older saved entries; Medicare now generally uses G0316 for inpatient or observation prolonged E/M."
 
-// Work RVUs are curated from CMS PFS Relative Value Files for 2020, 2024, and 2026.
+// Static curated catalog. Work RVUs are from CMS PFS Relative Value Files for
+// 2020, 2024, and 2026. Append new rows with new ids; do not renumber old rows.
 let cptCodes = [
     CPTCode(id: 1, code: "99221", description: "Initial hospital or observation care, level 1", profiles: [.hospitalist, .pediatricHospitalist], rvusByYear: [2020: 1.92, 2024: 1.63, 2026: 1.63]),
     CPTCode(id: 2, code: "99222", description: "Initial hospital or observation care, level 2", profiles: [.hospitalist, .pediatricHospitalist], rvusByYear: [2020: 2.61, 2024: 2.60, 2026: 2.60]),

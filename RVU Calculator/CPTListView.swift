@@ -8,6 +8,8 @@ import SwiftUI
 import SwiftData
 
 private extension Color {
+    // Cross-platform background color helpers keep the SwiftUI views usable on
+    // both iOS and macOS without scattering #if checks through the UI code.
     static var rvuSystemBackground: Color {
         #if os(macOS)
         Color(nsColor: .windowBackgroundColor)
@@ -26,6 +28,7 @@ private extension Color {
 }
 
 private extension View {
+    // iOS has a useful inline navigation title style; macOS ignores it.
     @ViewBuilder
     func rvuInlineNavigationTitle() -> some View {
         #if os(iOS)
@@ -36,8 +39,12 @@ private extension View {
     }
 }
 
+// Main landing screen: calendar, schedule controls, month totals, and year summary entry.
 struct CPTListView: View {
+    // SwiftData automatically keeps this list updated when charge records change.
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
+
+    // Schedule preferences are app-wide and remembered between launches.
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
     @AppStorage("singleRVUYear") private var singleRVUYear = 2026
     @AppStorage("baseRVUYear") private var baseRVUYear = 2024
@@ -46,12 +53,14 @@ struct CPTListView: View {
     @State private var selectedDate = Date()
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
 
+    // Used for the "Enter Charges for..." button label.
     private let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .full
         return formatter
     }()
 
+    // Converts the persisted schedule settings into the years the math/rendering code needs.
     private var selectedScheduleYears: [Int] {
         selectedRVUYears(
             modeRaw: scheduleModeRaw,
@@ -104,6 +113,7 @@ struct CPTListView: View {
         }
     }
 
+    // Shows the selected month's running RVU total using the active schedule mode.
     private var monthTotalCard: some View {
         let totals = monthTotals(records: records, containing: selectedDate, years: selectedScheduleYears)
 
@@ -131,6 +141,7 @@ struct CPTListView: View {
         .cornerRadius(12)
     }
 
+    // Lets the user jump to a month-by-month summary for the selected calendar year.
     private var yearSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -181,6 +192,8 @@ struct CPTListView: View {
     }
 }
 
+// Shared helper that turns schedule settings into a non-duplicated list of years.
+// If the user picks the same year for base and comparison, the UI collapses to one column.
 private func selectedRVUYears(modeRaw: String, singleYear: Int, baseYear: Int, comparisonYear: Int) -> [Int] {
     let mode = RVUScheduleMode(rawValue: modeRaw) ?? .compare
     switch mode {
@@ -191,12 +204,15 @@ private func selectedRVUYears(modeRaw: String, singleYear: Int, baseYear: Int, c
     }
 }
 
+// Reusable controls for choosing one schedule year or comparing two years.
+// This appears on both the calendar screen and the daily charge-entry screen.
 private struct ScheduleControls: View {
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
     @AppStorage("singleRVUYear") private var singleRVUYear = 2026
     @AppStorage("baseRVUYear") private var baseRVUYear = 2024
     @AppStorage("comparisonRVUYear") private var comparisonRVUYear = 2026
 
+    // Picker tags use String raw values because AppStorage stores the selected mode that way.
     private var scheduleMode: Binding<String> {
         Binding(
             get: { scheduleModeRaw },
@@ -231,6 +247,7 @@ private struct ScheduleControls: View {
         .cornerRadius(12)
     }
 
+    // Menu picker is compact enough for the card layout and works on iOS/macOS.
     private func yearPicker(_ title: String, selection: Binding<Int>) -> some View {
         Picker(title, selection: selection) {
             ForEach(supportedRVUYears, id: \.self) { year in
@@ -242,12 +259,14 @@ private struct ScheduleControls: View {
     }
 }
 
+// Custom month calendar that shows which days already have saved charges.
 struct RVUCalendarView: View {
     @Binding var selectedDate: Date
     let datesWithEntries: Set<String>
 
     @State private var displayedMonth: Date
 
+    // Initialize the visible calendar month from the currently selected day.
     init(selectedDate: Binding<Date>, datesWithEntries: Set<String>) {
         self._selectedDate = selectedDate
         self.datesWithEntries = datesWithEntries
@@ -257,12 +276,14 @@ struct RVUCalendarView: View {
         self._displayedMonth = State(initialValue: month)
     }
 
+    // Display label for the visible calendar month.
     private var monthTitle: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "LLLL yyyy"
         return formatter.string(from: displayedMonth)
     }
 
+    // Reorders weekday labels to respect the user's current calendar first weekday.
     private var weekdaySymbols: [String] {
         let calendar = Calendar.current
         let symbols = calendar.shortStandaloneWeekdaySymbols
@@ -270,6 +291,7 @@ struct RVUCalendarView: View {
         return Array(symbols[first...] + symbols[..<first])
     }
 
+    // Produces a grid with nil leading/trailing slots so month days align under weekdays.
     private var dayGrid: [Date?] {
         let calendar = Calendar.current
         let startOfMonth = calendar.date(
@@ -347,6 +369,7 @@ struct RVUCalendarView: View {
                 }
             }
         }
+        // If the selected date changes elsewhere, keep the visible month in sync.
         .onChange(of: selectedDate) { _, newDate in
             let selectedMonth = Calendar.current.date(
                 from: Calendar.current.dateComponents([.year, .month], from: newDate)
@@ -358,6 +381,7 @@ struct RVUCalendarView: View {
     }
 }
 
+// One tappable day in the custom calendar.
 private struct DayCell: View {
     let date: Date
     let isSelected: Bool
@@ -381,9 +405,12 @@ private struct DayCell: View {
     }
 }
 
+// Daily charge-entry workflow: profile-specific list, full-catalog search, save, and results.
 struct DayChargeEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+
+    // Profile and schedule choices are remembered globally so daily entry stays fast.
     @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
     @AppStorage("singleRVUYear") private var singleRVUYear = 2026
@@ -392,7 +419,10 @@ struct DayChargeEntryView: View {
 
     let date: Date
 
+    // Text values are stored while editing so empty fields can stay visually empty.
     @State private var chargeCounts: [Int: String] = [:]
+
+    // Tracks searched/added codes that are outside the active profile but should be visible today.
     @State private var extraCodeIDs: Set<Int> = []
     @State private var searchText = ""
     @State private var statusMessage: String?
@@ -400,16 +430,19 @@ struct DayChargeEntryView: View {
     @State private var summaryRows: [CPTSummary] = []
     @State private var showSummary = false
 
+    // Used for the navigation title on the daily entry screen.
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .full
         return formatter
     }()
 
+    // Converts the stored raw profile value into the enum used by filtering logic.
     private var selectedProfile: ProviderProfile {
         ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist
     }
 
+    // Active schedule years for result calculations.
     private var selectedScheduleYears: [Int] {
         selectedRVUYears(
             modeRaw: scheduleModeRaw,
@@ -419,10 +452,13 @@ struct DayChargeEntryView: View {
         )
     }
 
+    // The normal charge rows for the selected provider profile.
     private var profileCodes: [CPTCode] {
         cptCodes.filter { $0.profiles.contains(selectedProfile) }
     }
 
+    // Rows outside the active profile that have been searched/added or already have counts.
+    // This prevents profile switching from hiding saved charges.
     private var additionalCodes: [CPTCode] {
         cptCodes.filter { cpt in
             !cpt.profiles.contains(selectedProfile)
@@ -430,6 +466,7 @@ struct DayChargeEntryView: View {
         }
     }
 
+    // Search only offers catalog rows that are not already visible on the screen.
     private var searchResults: [CPTCode] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
@@ -540,6 +577,7 @@ struct DayChargeEntryView: View {
         }
     }
 
+    // Compact profile selector shown above the daily charge list.
     private var profilePicker: some View {
         HStack {
             Text("Profile")
@@ -556,6 +594,7 @@ struct DayChargeEntryView: View {
         }
     }
 
+    // Shared row layout for profile rows and additional searched rows.
     private func codeRow(for cpt: CPTCode) -> some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
@@ -688,12 +727,14 @@ struct DayChargeEntryView: View {
     }
 }
 
+// Month-by-month totals for a selected calendar year and active RVU schedule setting.
 struct YearSummaryView: View {
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
     let year: Int
     let scheduleYears: [Int]
 
+    // Navigation title helper that avoids locale punctuation in the year.
     private var plainYearString: String {
         String(year)
     }

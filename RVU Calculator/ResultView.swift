@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// One row in the results table after multiplying a charge count by selected RVU schedules.
 struct CPTSummary: Identifiable {
     let id: Int
     let code: String
@@ -15,21 +16,28 @@ struct CPTSummary: Identifiable {
     let warning: String?
 }
 
+// Results sheet shown after saving daily charges.
+// It supports either one selected schedule year or a two-year comparison.
 struct ResultView: View {
     @Environment(\.colorScheme) private var colorScheme
 
+    // scheduleYears controls the visible columns and their order.
     let scheduleYears: [Int]
     let totalsByYear: [Int: Double]
     let cptSummaries: [CPTSummary]
     var onReturnToCalendar: (() -> Void)? = nil
 
+    // Convenience accessors used only when comparison mode supplies two years.
     private var firstYear: Int? { scheduleYears.first }
     private var secondYear: Int? { scheduleYears.dropFirst().first }
+
+    // Color helpers keep light/dark mode contrast readable without repeating conditions.
     private var totalBlueCardTint: Color { colorScheme == .dark ? Color.blue.opacity(0.24) : Color.blue.opacity(0.12) }
     private var totalGreenCardTint: Color { colorScheme == .dark ? Color.green.opacity(0.24) : Color.green.opacity(0.12) }
     private var cptBlueChipBackground: Color { colorScheme == .dark ? Color.blue.opacity(0.30) : Color.blue.opacity(0.14) }
     private var cptGreenChipBackground: Color { colorScheme == .dark ? Color.green.opacity(0.30) : Color.green.opacity(0.14) }
 
+    // Percent difference badge shown on the comparison-year card when a base total exists.
     private var changeText: String? {
         guard
             let firstYear,
@@ -147,11 +155,13 @@ struct ResultView: View {
         .navigationTitle("Results")
     }
 
+    // In compare mode, visually outlines whichever schedule total is larger.
     private var emphasizedYear: Int? {
         guard scheduleYears.count == 2 else { return nil }
         return scheduleYears.max { totalsByYear[$0, default: 0] < totalsByYear[$1, default: 0] }
     }
 
+    // Dynamic table header. The same view works for one or two schedule columns.
     private var headerRow: some View {
         HStack {
             Text("CPT")
@@ -170,6 +180,7 @@ struct ResultView: View {
         .padding(.horizontal, 6)
     }
 
+    // Per-code rows can be missing an RVU in a given schedule year; show N/A instead of 0.
     private func valueText(_ value: Double?) -> String {
         guard let value else { return "N/A" }
         return String(format: "%.2f", value)
