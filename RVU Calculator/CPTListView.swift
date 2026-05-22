@@ -52,6 +52,9 @@ struct CPTListView: View {
 
     @State private var selectedDate = Date()
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
+    @State private var displayedMonth = Calendar.current.date(
+        from: Calendar.current.dateComponents([.year, .month], from: Date())
+    ) ?? Date()
 
     // Used for the "Enter Charges for..." button label.
     private let dayFormatter: DateFormatter = {
@@ -80,6 +83,7 @@ struct CPTListView: View {
             VStack(spacing: 16) {
                 RVUCalendarView(
                     selectedDate: $selectedDate,
+                    displayedMonth: $displayedMonth,
                     datesWithEntries: Set(records.map(\.dayKey))
                 )
                     .padding(12)
@@ -111,11 +115,14 @@ struct CPTListView: View {
         .onChange(of: selectedDate) { _, newDate in
             selectedYear = Calendar.current.component(.year, from: newDate)
         }
+        .onChange(of: displayedMonth) { _, newMonth in
+            selectedYear = Calendar.current.component(.year, from: newMonth)
+        }
     }
 
-    // Shows the selected month's running RVU total using the active schedule mode.
+    // Shows the visible calendar month's running RVU total using the active schedule mode.
     private var monthTotalCard: some View {
-        let totals = monthTotals(records: records, containing: selectedDate, years: selectedScheduleYears)
+        let totals = monthTotals(records: records, containing: displayedMonth, years: selectedScheduleYears)
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("Month Totals")
@@ -262,18 +269,13 @@ private struct ScheduleControls: View {
 // Custom month calendar that shows which days already have saved charges.
 struct RVUCalendarView: View {
     @Binding var selectedDate: Date
+    @Binding var displayedMonth: Date
     let datesWithEntries: Set<String>
 
-    @State private var displayedMonth: Date
-
-    // Initialize the visible calendar month from the currently selected day.
-    init(selectedDate: Binding<Date>, datesWithEntries: Set<String>) {
+    init(selectedDate: Binding<Date>, displayedMonth: Binding<Date>, datesWithEntries: Set<String>) {
         self._selectedDate = selectedDate
+        self._displayedMonth = displayedMonth
         self.datesWithEntries = datesWithEntries
-        let month = Calendar.current.date(
-            from: Calendar.current.dateComponents([.year, .month], from: selectedDate.wrappedValue)
-        ) ?? selectedDate.wrappedValue
-        self._displayedMonth = State(initialValue: month)
     }
 
     // Display label for the visible calendar month.
