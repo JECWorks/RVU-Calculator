@@ -91,6 +91,61 @@ struct CPTCode: Identifiable {
     }
 }
 
+// A named work context for the clinician using the app. Profiles let the user
+// keep separate default charge-entry and RVU schedule preferences for each job.
+@Model
+final class WorkProfile {
+    // Stable profile identifier. Stored separately from SwiftData's internal ID
+    // so AppStorage can remember which profile is active between launches.
+    @Attribute(.unique) var id: UUID
+
+    // User-facing profile label, such as "Current Job" or "Locums Site A".
+    var name: String
+
+    // Raw enum values are persisted so future enum display-name changes do not
+    // break the stored profile preferences.
+    var providerProfileRaw: String
+    var scheduleModeRaw: String
+
+    // Default RVU schedule selections restored when the user switches profiles.
+    var singleRVUYear: Int
+    var baseRVUYear: Int
+    var comparisonRVUYear: Int
+
+    // Creation date gives the profile picker a stable chronological sort order.
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        providerProfile: ProviderProfile = .hospitalist,
+        scheduleMode: RVUScheduleMode = .compare,
+        singleRVUYear: Int = 2026,
+        baseRVUYear: Int = 2024,
+        comparisonRVUYear: Int = 2026,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.providerProfileRaw = providerProfile.rawValue
+        self.scheduleModeRaw = scheduleMode.rawValue
+        self.singleRVUYear = singleRVUYear
+        self.baseRVUYear = baseRVUYear
+        self.comparisonRVUYear = comparisonRVUYear
+        self.createdAt = createdAt
+    }
+
+    // Typed view of the saved provider-profile string for display/filtering.
+    var providerProfile: ProviderProfile {
+        ProviderProfile(rawValue: providerProfileRaw) ?? .hospitalist
+    }
+
+    // Typed view of the saved schedule-mode string for display/calculation.
+    var scheduleMode: RVUScheduleMode {
+        RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare
+    }
+}
+
 // One saved day of charge counts. The model stores CPT ids and counts as JSON
 // so the SwiftData schema can stay stable as the static catalog expands.
 @Model

@@ -39,12 +39,23 @@ private extension View {
     }
 }
 
+// AppStorage key used to remember the selected WorkProfile UUID string.
+private let activeWorkProfileIDKey = "activeWorkProfileID"
+
 // Main landing screen: calendar, schedule controls, month totals, and year summary entry.
 struct CPTListView: View {
+    @Environment(\.modelContext) private var modelContext
+
     // SwiftData automatically keeps this list updated when charge records change.
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
-    // Schedule preferences are app-wide and remembered between launches.
+    // Available saved work profiles, ordered by creation date for stable menus.
+    @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
+
+    // Profile and schedule preferences are still stored in AppStorage for the
+    // shared controls, then mirrored into the active WorkProfile.
+    @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
+    @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
     @AppStorage("singleRVUYear") private var singleRVUYear = 2026
     @AppStorage("baseRVUYear") private var baseRVUYear = 2024
@@ -71,6 +82,15 @@ struct CPTListView: View {
             baseYear: baseRVUYear,
             comparisonYear: comparisonRVUYear
         )
+    }
+
+    private var activeWorkProfile: WorkProfile? {
+        workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
+    }
+
+    // Toolbar label for the profile/preferences entry point.
+    private var activeWorkProfileName: String {
+        activeWorkProfile?.name ?? "Current Job"
     }
 
     // ## Formats a year value for display without locale-specific punctuation.
@@ -112,11 +132,38 @@ struct CPTListView: View {
             .padding(16)
         }
         .navigationTitle("RVU Calculator")
+        .toolbar {
+            // Opens the profile/preferences page from the main calendar screen.
+            NavigationLink {
+                WorkProfileSettingsView()
+            } label: {
+                Label(activeWorkProfileName, systemImage: "person.crop.circle")
+            }
+        }
+        .onAppear(perform: ensureActiveWorkProfile)
         .onChange(of: selectedDate) { _, newDate in
             selectedYear = Calendar.current.component(.year, from: newDate)
         }
         .onChange(of: displayedMonth) { _, newMonth in
             selectedYear = Calendar.current.component(.year, from: newMonth)
+        }
+        .onChange(of: activeWorkProfileID) { _, _ in
+            applyActiveWorkProfileSettings()
+        }
+        .onChange(of: selectedProfileRaw) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: scheduleModeRaw) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: singleRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: baseRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: comparisonRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
         }
     }
 
@@ -196,6 +243,269 @@ struct CPTListView: View {
         .frame(maxWidth: .infinity)
         .background(tint)
         .cornerRadius(10)
+    }
+
+    // Creates a first profile for existing installs and repairs an invalid
+    // active-profile pointer if a profile was deleted.
+    private func ensureActiveWorkProfile() {
+        if workProfiles.isEmpty {
+            let profile = WorkProfile(
+                name: "Current Job",
+                providerProfile: ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist,
+                scheduleMode: RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare,
+                singleRVUYear: singleRVUYear,
+                baseRVUYear: baseRVUYear,
+                comparisonRVUYear: comparisonRVUYear
+            )
+            modelContext.insert(profile)
+            activeWorkProfileID = profile.id.uuidString
+            try? modelContext.save()
+            return
+        }
+
+        if activeWorkProfileID.isEmpty || !workProfiles.contains(where: { $0.id.uuidString == activeWorkProfileID }) {
+            activeWorkProfileID = workProfiles[0].id.uuidString
+            applyActiveWorkProfileSettings()
+        }
+    }
+
+    // Loads the selected profile's saved specialty and RVU schedule preferences
+    // back into the existing AppStorage-backed controls.
+    private func applyActiveWorkProfileSettings() {
+        guard let profile = activeWorkProfile else { return }
+        selectedProfileRaw = profile.providerProfileRaw
+        scheduleModeRaw = profile.scheduleModeRaw
+        singleRVUYear = profile.singleRVUYear
+        baseRVUYear = profile.baseRVUYear
+        comparisonRVUYear = profile.comparisonRVUYear
+    }
+
+    // Persists changes from the shared specialty/schedule controls onto the
+    // active profile so switching profiles restores each job's preferences.
+    private func saveCurrentSettingsToActiveWorkProfile() {
+        guard let profile = activeWorkProfile else { return }
+        profile.providerProfileRaw = selectedProfileRaw
+        profile.scheduleModeRaw = scheduleModeRaw
+        profile.singleRVUYear = singleRVUYear
+        profile.baseRVUYear = baseRVUYear
+        profile.comparisonRVUYear = comparisonRVUYear
+        try? modelContext.save()
+    }
+}
+
+// Profile management screen. Step one keeps profile-specific preferences working;
+// later steps will scope saved charge records and exports to these same profiles.
+private struct WorkProfileSettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+
+    // Profile list shown in the picker and management section.
+    @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
+
+    // Shared settings backing the existing profile and RVU schedule controls.
+    @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
+    @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
+    @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
+    @AppStorage("singleRVUYear") private var singleRVUYear = 2026
+    @AppStorage("baseRVUYear") private var baseRVUYear = 2024
+    @AppStorage("comparisonRVUYear") private var comparisonRVUYear = 2026
+
+    @State private var newProfileName = ""
+    @State private var profilePendingDelete: WorkProfile?
+
+    // Current profile used for the summary rows in the Active Profile section.
+    private var activeProfile: WorkProfile? {
+        workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
+    }
+
+    var body: some View {
+        List {
+            // Picker for switching the whole app to another saved work context.
+            Section("Active Profile") {
+                Picker("Profile", selection: $activeWorkProfileID) {
+                    ForEach(workProfiles) { profile in
+                        Text(profile.name).tag(profile.id.uuidString)
+                    }
+                }
+
+                if let activeProfile {
+                    profileDetail(profile: activeProfile)
+                }
+            }
+
+            // Creates a new profile using the current specialty/schedule settings.
+            Section("Add Profile") {
+                TextField("Profile name", text: $newProfileName)
+
+                Button("Add Profile", action: addProfile)
+                    .disabled(trimmedNewProfileName.isEmpty)
+            }
+
+            // Rename, duplicate, or remove saved profile definitions.
+            Section("Manage Profiles") {
+                ForEach(workProfiles) { profile in
+                    profileManagementRow(profile)
+                }
+            }
+        }
+        .navigationTitle("Profiles")
+        .onAppear(perform: ensureProfileExists)
+        .onChange(of: activeWorkProfileID) { _, _ in
+            applyActiveProfileSettings()
+        }
+        .alert("Delete Profile?", isPresented: deleteAlertBinding) {
+            Button("Cancel", role: .cancel) {
+                profilePendingDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                deletePendingProfile()
+            }
+        } message: {
+            Text("This removes the profile settings. Saved charge data will be connected to profiles in the next implementation step.")
+        }
+    }
+
+    private var trimmedNewProfileName: String {
+        newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // Converts an optional pending-delete profile into the Bool binding required
+    // by SwiftUI's alert API.
+    private var deleteAlertBinding: Binding<Bool> {
+        Binding(
+            get: { profilePendingDelete != nil },
+            set: { if !$0 { profilePendingDelete = nil } }
+        )
+    }
+
+    // Read-only summary of the preferences stored on a profile.
+    @ViewBuilder
+    private func profileDetail(profile: WorkProfile) -> some View {
+        LabeledContent("Default Specialty", value: profile.providerProfile.displayName)
+        LabeledContent("RVU Schedule", value: profile.scheduleMode.displayName)
+    }
+
+    // One editable row in the Manage Profiles section.
+    private func profileManagementRow(_ profile: WorkProfile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Profile name", text: nameBinding(for: profile))
+                .font(.headline)
+
+            HStack {
+                Button("Duplicate") {
+                    duplicateProfile(profile)
+                }
+
+                Spacer()
+
+                Button("Delete", role: .destructive) {
+                    profilePendingDelete = profile
+                }
+                .disabled(workProfiles.count <= 1)
+            }
+            .font(.subheadline)
+
+            if profile.id.uuidString == activeWorkProfileID {
+                Text("Active")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // Saves inline profile-name edits immediately while avoiding blank names.
+    private func nameBinding(for profile: WorkProfile) -> Binding<String> {
+        Binding(
+            get: { profile.name },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                profile.name = trimmed.isEmpty ? "Untitled Profile" : newValue
+                try? modelContext.save()
+            }
+        )
+    }
+
+    // Ensures the settings page always has at least one selectable profile.
+    private func ensureProfileExists() {
+        guard workProfiles.isEmpty else {
+            if activeWorkProfileID.isEmpty || !workProfiles.contains(where: { $0.id.uuidString == activeWorkProfileID }) {
+                activeWorkProfileID = workProfiles[0].id.uuidString
+                applyActiveProfileSettings()
+            }
+            return
+        }
+
+        addProfile(named: "Current Job")
+    }
+
+    // Adds a profile from the text field and clears the field afterward.
+    private func addProfile() {
+        addProfile(named: trimmedNewProfileName)
+        newProfileName = ""
+    }
+
+    // Creates a profile initialized from the user's current specialty/schedule settings.
+    private func addProfile(named name: String) {
+        let profile = WorkProfile(
+            name: name,
+            providerProfile: ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist,
+            scheduleMode: RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare,
+            singleRVUYear: singleRVUYear,
+            baseRVUYear: baseRVUYear,
+            comparisonRVUYear: comparisonRVUYear
+        )
+        modelContext.insert(profile)
+        activeWorkProfileID = profile.id.uuidString
+        try? modelContext.save()
+    }
+
+    // Copies a profile's preferences into a new active profile.
+    private func duplicateProfile(_ profile: WorkProfile) {
+        let copy = WorkProfile(
+            name: "\(profile.name) Copy",
+            providerProfile: profile.providerProfile,
+            scheduleMode: profile.scheduleMode,
+            singleRVUYear: profile.singleRVUYear,
+            baseRVUYear: profile.baseRVUYear,
+            comparisonRVUYear: profile.comparisonRVUYear
+        )
+        modelContext.insert(copy)
+        activeWorkProfileID = copy.id.uuidString
+        try? modelContext.save()
+        applyActiveProfileSettings()
+    }
+
+    // Deletes the profile selected in the confirmation alert and switches to
+    // another profile if the deleted one was active.
+    private func deletePendingProfile() {
+        guard let profile = profilePendingDelete else { return }
+        let remainingProfiles = workProfiles.filter { $0.id != profile.id }
+        guard !remainingProfiles.isEmpty else {
+            profilePendingDelete = nil
+            return
+        }
+
+        let deletedActiveProfile = profile.id.uuidString == activeWorkProfileID
+        modelContext.delete(profile)
+
+        if deletedActiveProfile {
+            activeWorkProfileID = remainingProfiles[0].id.uuidString
+            applyActiveProfileSettings()
+        }
+
+        try? modelContext.save()
+        profilePendingDelete = nil
+    }
+
+    // Applies the selected profile's saved preferences to the shared controls.
+    private func applyActiveProfileSettings() {
+        guard let profile = activeProfile else { return }
+        selectedProfileRaw = profile.providerProfileRaw
+        scheduleModeRaw = profile.scheduleModeRaw
+        singleRVUYear = profile.singleRVUYear
+        baseRVUYear = profile.baseRVUYear
+        comparisonRVUYear = profile.comparisonRVUYear
     }
 }
 
@@ -412,7 +722,11 @@ struct DayChargeEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    // Used to keep daily-entry specialty/schedule edits synced with the active profile.
+    @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
+
     // Profile and schedule choices are remembered globally so daily entry stays fast.
+    @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
     @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
     @AppStorage("singleRVUYear") private var singleRVUYear = 2026
@@ -442,6 +756,11 @@ struct DayChargeEntryView: View {
     // Converts the stored raw profile value into the enum used by filtering logic.
     private var selectedProfile: ProviderProfile {
         ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist
+    }
+
+    // Active profile for saving daily-entry preference changes.
+    private var activeWorkProfile: WorkProfile? {
+        workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
     }
 
     // Active schedule years for result calculations.
@@ -563,7 +882,25 @@ struct DayChargeEntryView: View {
         }
         .navigationTitle(dateFormatter.string(from: date))
         .rvuInlineNavigationTitle()
-        .onAppear(perform: loadForDate)
+        .onAppear {
+            applyActiveWorkProfileSettings()
+            loadForDate()
+        }
+        .onChange(of: selectedProfileRaw) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: scheduleModeRaw) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: singleRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: baseRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
+        .onChange(of: comparisonRVUYear) { _, _ in
+            saveCurrentSettingsToActiveWorkProfile()
+        }
         .sheet(isPresented: $showSummary) {
             NavigationStack {
                 ResultView(
@@ -577,6 +914,27 @@ struct DayChargeEntryView: View {
                 )
             }
         }
+    }
+
+    // Restores the active profile's specialty/schedule settings before loading rows.
+    private func applyActiveWorkProfileSettings() {
+        guard let profile = activeWorkProfile else { return }
+        selectedProfileRaw = profile.providerProfileRaw
+        scheduleModeRaw = profile.scheduleModeRaw
+        singleRVUYear = profile.singleRVUYear
+        baseRVUYear = profile.baseRVUYear
+        comparisonRVUYear = profile.comparisonRVUYear
+    }
+
+    // Captures changes made from the daily charge-entry controls on the active profile.
+    private func saveCurrentSettingsToActiveWorkProfile() {
+        guard let profile = activeWorkProfile else { return }
+        profile.providerProfileRaw = selectedProfileRaw
+        profile.scheduleModeRaw = scheduleModeRaw
+        profile.singleRVUYear = singleRVUYear
+        profile.baseRVUYear = baseRVUYear
+        profile.comparisonRVUYear = comparisonRVUYear
+        try? modelContext.save()
     }
 
     // Compact profile selector shown above the daily charge list.

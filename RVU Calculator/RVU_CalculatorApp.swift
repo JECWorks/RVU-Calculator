@@ -23,7 +23,7 @@ struct RVU_CalculatorApp: App {
             ContentView()
                 .frame(minWidth: 400, minHeight: 600)
         }
-        .modelContainer(for: [DayRecord.self])
+        .modelContainer(for: [DayRecord.self, WorkProfile.self])
         #if os(macOS)
         .commands {
             CommandMenu("Tools") {
