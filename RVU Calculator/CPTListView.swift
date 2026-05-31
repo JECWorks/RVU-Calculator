@@ -41,6 +41,10 @@ private extension View {
 
 // AppStorage key used to remember the selected WorkProfile UUID string.
 private let activeWorkProfileIDKey = "activeWorkProfileID"
+private let defaultWorkProfileName = "Default"
+
+// Earlier profile builds used this starter name; keep it only for migration.
+private let legacyDefaultWorkProfileName = "Current Job"
 
 // Main landing screen: calendar, schedule controls, month totals, and year summary entry.
 struct CPTListView: View {
@@ -90,7 +94,7 @@ struct CPTListView: View {
 
     // Toolbar label for the profile/preferences entry point.
     private var activeWorkProfileName: String {
-        activeWorkProfile?.name ?? "Current Job"
+        activeWorkProfile?.name ?? defaultWorkProfileName
     }
 
     // ## Formats a year value for display without locale-specific punctuation.
@@ -245,27 +249,56 @@ struct CPTListView: View {
         .cornerRadius(10)
     }
 
-    // Creates a first profile for existing installs and repairs an invalid
-    // active-profile pointer if a profile was deleted.
+    // Creates or selects the Default profile, then assigns older unowned records
+    // to it. This keeps existing user data available before profile filtering is added.
     private func ensureActiveWorkProfile() {
-        if workProfiles.isEmpty {
-            let profile = WorkProfile(
-                name: "Current Job",
-                providerProfile: ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist,
-                scheduleMode: RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare,
-                singleRVUYear: singleRVUYear,
-                baseRVUYear: baseRVUYear,
-                comparisonRVUYear: comparisonRVUYear
-            )
-            modelContext.insert(profile)
-            activeWorkProfileID = profile.id.uuidString
-            try? modelContext.save()
-            return
-        }
+        let defaultProfile = ensureDefaultWorkProfile()
 
         if activeWorkProfileID.isEmpty || !workProfiles.contains(where: { $0.id.uuidString == activeWorkProfileID }) {
-            activeWorkProfileID = workProfiles[0].id.uuidString
+            activeWorkProfileID = defaultProfile.id.uuidString
             applyActiveWorkProfileSettings()
+        }
+
+        assignUnownedRecords(to: defaultProfile)
+    }
+
+    // Returns the Default profile, creating it for new installs or renaming the
+    // legacy first-run profile from the earlier implementation pass.
+    private func ensureDefaultWorkProfile() -> WorkProfile {
+        if let defaultProfile = workProfiles.first(where: { $0.name == defaultWorkProfileName }) {
+            return defaultProfile
+        }
+
+        if let legacyProfile = workProfiles.first(where: { $0.name == legacyDefaultWorkProfileName }) {
+            legacyProfile.name = defaultWorkProfileName
+            try? modelContext.save()
+            return legacyProfile
+        }
+
+        let profile = WorkProfile(
+            name: defaultWorkProfileName,
+            providerProfile: ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist,
+            scheduleMode: RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare,
+            singleRVUYear: singleRVUYear,
+            baseRVUYear: baseRVUYear,
+            comparisonRVUYear: comparisonRVUYear
+        )
+        modelContext.insert(profile)
+        activeWorkProfileID = profile.id.uuidString
+        try? modelContext.save()
+        return profile
+    }
+
+    // Marks records created before profiles existed as belonging to Default.
+    private func assignUnownedRecords(to profile: WorkProfile) {
+        var updatedRecord = false
+        for record in records where record.workProfileID == nil {
+            record.workProfileID = profile.id
+            updatedRecord = true
+        }
+
+        if updatedRecord {
+            try? modelContext.save()
         }
     }
 
@@ -293,13 +326,16 @@ struct CPTListView: View {
     }
 }
 
-// Profile management screen. Step one keeps profile-specific preferences working;
-// later steps will scope saved charge records and exports to these same profiles.
+// Profile management screen. Profiles now own both preferences and migrated
+// charge records; later steps will filter the calendar and exports by owner.
 private struct WorkProfileSettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
     // Profile list shown in the picker and management section.
     @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
+
+    // Used when assigning older records to Default or reassigning records after deletion.
+    @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
     // Shared settings backing the existing profile and RVU schedule controls.
     @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
@@ -360,7 +396,7 @@ private struct WorkProfileSettingsView: View {
                 deletePendingProfile()
             }
         } message: {
-            Text("This removes the profile settings. Saved charge data will be connected to profiles in the next implementation step.")
+            Text("Any saved charges assigned to this profile will move to another available profile.")
         }
     }
 
@@ -426,17 +462,57 @@ private struct WorkProfileSettingsView: View {
         )
     }
 
-    // Ensures the settings page always has at least one selectable profile.
+    // Ensures the settings page has a Default profile and migrates older records
+    // that were saved before profiles existed.
     private func ensureProfileExists() {
-        guard workProfiles.isEmpty else {
-            if activeWorkProfileID.isEmpty || !workProfiles.contains(where: { $0.id.uuidString == activeWorkProfileID }) {
-                activeWorkProfileID = workProfiles[0].id.uuidString
-                applyActiveProfileSettings()
-            }
-            return
+        let defaultProfile = ensureDefaultWorkProfile()
+
+        if activeWorkProfileID.isEmpty || !workProfiles.contains(where: { $0.id.uuidString == activeWorkProfileID }) {
+            activeWorkProfileID = defaultProfile.id.uuidString
+            applyActiveProfileSettings()
         }
 
-        addProfile(named: "Current Job")
+        assignUnownedRecords(to: defaultProfile)
+    }
+
+    // Returns the Default profile, preserving a legacy starter profile by
+    // renaming it instead of creating a duplicate.
+    private func ensureDefaultWorkProfile() -> WorkProfile {
+        if let defaultProfile = workProfiles.first(where: { $0.name == defaultWorkProfileName }) {
+            return defaultProfile
+        }
+
+        if let legacyProfile = workProfiles.first(where: { $0.name == legacyDefaultWorkProfileName }) {
+            legacyProfile.name = defaultWorkProfileName
+            try? modelContext.save()
+            return legacyProfile
+        }
+
+        let profile = WorkProfile(
+            name: defaultWorkProfileName,
+            providerProfile: ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist,
+            scheduleMode: RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare,
+            singleRVUYear: singleRVUYear,
+            baseRVUYear: baseRVUYear,
+            comparisonRVUYear: comparisonRVUYear
+        )
+        modelContext.insert(profile)
+        activeWorkProfileID = profile.id.uuidString
+        try? modelContext.save()
+        return profile
+    }
+
+    // Gives existing records a profile owner exactly once.
+    private func assignUnownedRecords(to profile: WorkProfile) {
+        var updatedRecord = false
+        for record in records where record.workProfileID == nil {
+            record.workProfileID = profile.id
+            updatedRecord = true
+        }
+
+        if updatedRecord {
+            try? modelContext.save()
+        }
     }
 
     // Adds a profile from the text field and clears the field afterward.
@@ -476,8 +552,8 @@ private struct WorkProfileSettingsView: View {
         applyActiveProfileSettings()
     }
 
-    // Deletes the profile selected in the confirmation alert and switches to
-    // another profile if the deleted one was active.
+    // Deletes the profile selected in the confirmation alert, moving its saved
+    // records to the next available profile first.
     private func deletePendingProfile() {
         guard let profile = profilePendingDelete else { return }
         let remainingProfiles = workProfiles.filter { $0.id != profile.id }
@@ -487,10 +563,16 @@ private struct WorkProfileSettingsView: View {
         }
 
         let deletedActiveProfile = profile.id.uuidString == activeWorkProfileID
+        let replacementProfile = remainingProfiles[0]
+
+        for record in records where record.workProfileID == profile.id {
+            record.workProfileID = replacementProfile.id
+        }
+
         modelContext.delete(profile)
 
         if deletedActiveProfile {
-            activeWorkProfileID = remainingProfiles[0].id.uuidString
+            activeWorkProfileID = replacementProfile.id.uuidString
             applyActiveProfileSettings()
         }
 
@@ -1045,9 +1127,14 @@ struct DayChargeEntryView: View {
                 } else {
                     existing.date = DayRecord.startOfDay(for: date)
                     existing.counts = normalized
+                    // Backfill the owner if this day was created before profiles existed.
+                    if existing.workProfileID == nil {
+                        existing.workProfileID = activeWorkProfile?.id
+                    }
                 }
             } else if !normalized.isEmpty {
-                modelContext.insert(DayRecord(date: date, counts: normalized))
+                // New records are tagged now; filtering by active profile comes next.
+                modelContext.insert(DayRecord(date: date, counts: normalized, workProfileID: activeWorkProfile?.id))
             }
 
             try modelContext.save()

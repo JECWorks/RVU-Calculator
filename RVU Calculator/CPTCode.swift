@@ -99,7 +99,7 @@ final class WorkProfile {
     // so AppStorage can remember which profile is active between launches.
     @Attribute(.unique) var id: UUID
 
-    // User-facing profile label, such as "Current Job" or "Locums Site A".
+    // User-facing profile label, such as "Default" or "Locums Site A".
     var name: String
 
     // Raw enum values are persisted so future enum display-name changes do not
@@ -147,18 +147,24 @@ final class WorkProfile {
 }
 
 // One saved day of charge counts. The model stores CPT ids and counts as JSON
-// so the SwiftData schema can stay stable as the static catalog expands.
+// so the SwiftData schema can stay stable as the static catalog expands. Each
+// record can also point at the work profile it belongs to.
 @Model
 final class DayRecord {
     @Attribute(.unique) var dayKey: String
     var date: Date
     var countsData: Data
 
-    init(date: Date, counts: [Int: Int]) {
+    // Optional during migration: older saved records will be assigned to the
+    // Default profile when the app starts.
+    var workProfileIDString: String?
+
+    init(date: Date, counts: [Int: Int], workProfileID: UUID? = nil) {
         let normalizedDate = DayRecord.startOfDay(for: date)
         self.dayKey = DayRecord.key(for: normalizedDate)
         self.date = normalizedDate
         self.countsData = DayRecord.encode(counts)
+        self.workProfileIDString = workProfileID?.uuidString
     }
 
     // Decoded view of countsData. Keys are CPTCode.id values, not CPT code strings.
@@ -168,6 +174,17 @@ final class DayRecord {
         }
         set {
             countsData = DayRecord.encode(newValue)
+        }
+    }
+
+    // Typed profile owner used by migration and future profile-scoped queries.
+    var workProfileID: UUID? {
+        get {
+            guard let workProfileIDString else { return nil }
+            return UUID(uuidString: workProfileIDString)
+        }
+        set {
+            workProfileIDString = newValue?.uuidString
         }
     }
 
