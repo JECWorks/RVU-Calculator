@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 private extension Color {
     // Cross-platform background color helpers keep the SwiftUI views usable on
@@ -36,6 +37,29 @@ private extension View {
         #else
         self
         #endif
+    }
+}
+
+// Simple text-backed document used by the system file exporter for CSV output.
+private struct CSVExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+
+    var text: String
+
+    init(text: String = "") {
+        self.text = text
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents {
+            text = String(decoding: data, as: UTF8.self)
+        } else {
+            text = ""
+        }
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
     }
 }
 
@@ -357,6 +381,17 @@ private struct PreferencesView: View {
 
     @State private var newProfileName = ""
     @State private var profilePendingDelete: WorkProfile?
+    @State private var csvDocument = CSVExportDocument()
+    @State private var csvFilename = "RVU-Export.csv"
+    @State private var isExportingCSV = false
+    @State private var exportStatusMessage: String?
+    @State private var resetScopePendingConfirmation: ResetScope?
+
+    // Charge-data reset choices shown through a single confirmation alert.
+    private enum ResetScope {
+        case activeProfile
+        case allProfiles
+    }
 
     // Current profile used for the active profile summary and defaults.
     private var activeProfile: WorkProfile? {
@@ -367,6 +402,11 @@ private struct PreferencesView: View {
     private var activeProfileRecords: [DayRecord] {
         guard let activeProfileIDString = activeProfile?.id.uuidString else { return [] }
         return records.filter { $0.workProfileIDString == activeProfileIDString }
+    }
+
+    // Any saved charge records, sorted by date for export and reset summaries.
+    private var allChargeRecords: [DayRecord] {
+        records.sorted { $0.date < $1.date }
     }
 
     // Binding for the schedule mode segmented control.
@@ -395,6 +435,11 @@ private struct PreferencesView: View {
             // Default entry settings restored whenever this profile becomes active.
             Section("Profile Defaults") {
                 profileDefaultControls
+            }
+
+            // Export and reset charge data without changing saved profile definitions.
+            Section("Data Management") {
+                dataManagementControls
             }
 
             // Creates a new profile using the current specialty/schedule settings.
@@ -442,6 +487,29 @@ private struct PreferencesView: View {
         } message: {
             Text("Any saved charges assigned to this profile will move to another available profile.")
         }
+        .alert("Reset Charge Data?", isPresented: resetAlertBinding) {
+            Button("Cancel", role: .cancel) {
+                resetScopePendingConfirmation = nil
+            }
+            Button("Delete Charges", role: .destructive) {
+                performPendingReset()
+            }
+        } message: {
+            Text(resetAlertMessage)
+        }
+        .fileExporter(
+            isPresented: $isExportingCSV,
+            document: csvDocument,
+            contentType: .commaSeparatedText,
+            defaultFilename: csvFilename
+        ) { result in
+            switch result {
+            case .success:
+                exportStatusMessage = "CSV export ready."
+            case .failure:
+                exportStatusMessage = "Unable to export CSV."
+            }
+        }
     }
 
     private var trimmedNewProfileName: String {
@@ -455,6 +523,26 @@ private struct PreferencesView: View {
             get: { profilePendingDelete != nil },
             set: { if !$0 { profilePendingDelete = nil } }
         )
+    }
+
+    // Bridges the pending reset action into SwiftUI's Bool-based alert API.
+    private var resetAlertBinding: Binding<Bool> {
+        Binding(
+            get: { resetScopePendingConfirmation != nil },
+            set: { if !$0 { resetScopePendingConfirmation = nil } }
+        )
+    }
+
+    // Message shown before deleting saved charge records.
+    private var resetAlertMessage: String {
+        switch resetScopePendingConfirmation {
+        case .activeProfile:
+            return "This deletes saved charges for \(activeProfile?.name ?? defaultWorkProfileName). Profile settings will remain."
+        case .allProfiles:
+            return "This deletes saved charges from every profile. Profile settings will remain."
+        case nil:
+            return ""
+        }
     }
 
     // Read-only summary of the preferences stored on a profile.
@@ -500,6 +588,40 @@ private struct PreferencesView: View {
             }
         }
         .pickerStyle(.menu)
+    }
+
+    // Buttons for exporting CSVs and clearing saved charge data.
+    private var dataManagementControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button("Export Current Profile CSV") {
+                exportCSV(records: activeProfileRecords, filename: csvFilename(for: activeProfile?.name ?? defaultWorkProfileName))
+            }
+            .disabled(activeProfileRecords.isEmpty)
+
+            Button("Export All Profiles CSV") {
+                exportCSV(records: allChargeRecords, filename: "RVU-All-Profiles.csv")
+            }
+            .disabled(allChargeRecords.isEmpty)
+
+            Divider()
+
+            Button("Delete Current Profile Charges", role: .destructive) {
+                resetScopePendingConfirmation = .activeProfile
+            }
+            .disabled(activeProfileRecords.isEmpty)
+
+            Button("Delete All Charge Data", role: .destructive) {
+                resetScopePendingConfirmation = .allProfiles
+            }
+            .disabled(allChargeRecords.isEmpty)
+
+            if let exportStatusMessage {
+                Text(exportStatusMessage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     // One editable row in the Manage Profiles section.
@@ -632,6 +754,128 @@ private struct PreferencesView: View {
         activeWorkProfileID = copy.id.uuidString
         try? modelContext.save()
         applyActiveProfileSettings()
+    }
+
+    // Prepares the CSV document and opens the system export sheet.
+    private func exportCSV(records recordsToExport: [DayRecord], filename: String) {
+        csvDocument = CSVExportDocument(text: csvText(for: recordsToExport))
+        csvFilename = filename
+        exportStatusMessage = nil
+        isExportingCSV = true
+    }
+
+    // Builds one CSV row per charged CPT code so spreadsheet summaries stay easy.
+    private func csvText(for recordsToExport: [DayRecord]) -> String {
+        let cptByID = Dictionary(uniqueKeysWithValues: cptCodes.map { ($0.id, $0) })
+        let profileNamesByID = Dictionary(uniqueKeysWithValues: workProfiles.map { ($0.id.uuidString, $0.name) })
+        let header = csvHeader()
+
+        let rows = recordsToExport
+            .sorted { lhs, rhs in
+                if lhs.date == rhs.date {
+                    return (lhs.workProfileIDString ?? "") < (rhs.workProfileIDString ?? "")
+                }
+                return lhs.date < rhs.date
+            }
+            .flatMap { record in
+                record.counts
+                    .sorted { lhs, rhs in
+                        let lhsCode = cptByID[lhs.key]?.code ?? String(lhs.key)
+                        let rhsCode = cptByID[rhs.key]?.code ?? String(rhs.key)
+                        return lhsCode < rhsCode
+                    }
+                    .map { cptID, count in
+                        csvRow(
+                            record: record,
+                            cpt: cptByID[cptID],
+                            cptID: cptID,
+                            count: count,
+                            profileName: profileNamesByID[record.workProfileIDString ?? ""] ?? "Unknown"
+                        )
+                    }
+            }
+
+        return ([header] + rows).joined(separator: "\n") + "\n"
+    }
+
+    // Column labels for the exported charge file.
+    private func csvHeader() -> String {
+        let yearColumns = supportedRVUYears.flatMap { year in
+            ["Work RVU \(year)", "Total RVU \(year)"]
+        }
+
+        return csvLine(["Profile", "Date", "CPT Code", "Description", "Count"] + yearColumns)
+    }
+
+    // Converts one saved CPT count into a CSV row.
+    private func csvRow(record: DayRecord, cpt: CPTCode?, cptID: Int, count: Int, profileName: String) -> String {
+        let yearValues = supportedRVUYears.flatMap { year -> [String] in
+            guard let rvu = cpt?.rvu(for: year) else {
+                return ["", ""]
+            }
+
+            return [
+                String(format: "%.2f", rvu),
+                String(format: "%.2f", Double(count) * rvu)
+            ]
+        }
+
+        return csvLine([
+            profileName,
+            record.dayKey,
+            cpt?.code ?? String(cptID),
+            cpt?.description ?? "Unknown CPT",
+            String(count)
+        ] + yearValues)
+    }
+
+    // Escapes values using standard CSV double-quote rules.
+    private func csvLine(_ values: [String]) -> String {
+        values
+            .map { value in
+                let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+                if escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n") {
+                    return "\"\(escaped)\""
+                }
+                return escaped
+            }
+            .joined(separator: ",")
+    }
+
+    // File-system-friendly export name based on the selected profile.
+    private func csvFilename(for profileName: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let cleaned = profileName
+            .map { character -> Character in
+                character.unicodeScalars.allSatisfy { allowed.contains($0) } ? character : "-"
+            }
+            .reduce(into: "") { $0.append($1) }
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+
+        return "RVU-\(cleaned.isEmpty ? defaultWorkProfileName : cleaned).csv"
+    }
+
+    // Performs the reset chosen in the confirmation alert.
+    private func performPendingReset() {
+        switch resetScopePendingConfirmation {
+        case .activeProfile:
+            deleteRecords(activeProfileRecords)
+        case .allProfiles:
+            deleteRecords(allChargeRecords)
+        case nil:
+            break
+        }
+
+        resetScopePendingConfirmation = nil
+    }
+
+    // Deletes charge records while leaving profiles and preferences untouched.
+    private func deleteRecords(_ recordsToDelete: [DayRecord]) {
+        for record in recordsToDelete {
+            modelContext.delete(record)
+        }
+
+        try? modelContext.save()
     }
 
     // Deletes the profile selected in the confirmation alert. Same-date records
