@@ -92,6 +92,17 @@ struct CPTListView: View {
         workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
     }
 
+    // String form used in SwiftData predicates for profile/date lookups.
+    private var activeWorkProfileIDString: String {
+        activeWorkProfile?.id.uuidString ?? activeWorkProfileID
+    }
+
+    // Records currently visible in the calendar and summary cards.
+    private var activeProfileRecords: [DayRecord] {
+        guard let activeProfileIDString = activeWorkProfile?.id.uuidString else { return [] }
+        return records.filter { $0.workProfileIDString == activeProfileIDString }
+    }
+
     // Toolbar label for the profile/preferences entry point.
     private var activeWorkProfileName: String {
         activeWorkProfile?.name ?? defaultWorkProfileName
@@ -108,7 +119,7 @@ struct CPTListView: View {
                 RVUCalendarView(
                     selectedDate: $selectedDate,
                     displayedMonth: $displayedMonth,
-                    datesWithEntries: Set(records.map(\.dayKey))
+                    datesWithEntries: Set(activeProfileRecords.map(\.dayKey))
                 )
                     .padding(12)
                     .background(Color.rvuSystemBackground)
@@ -171,9 +182,9 @@ struct CPTListView: View {
         }
     }
 
-    // Shows the visible calendar month's running RVU total using the active schedule mode.
+    // Shows the visible calendar month's running RVU total for the active profile.
     private var monthTotalCard: some View {
-        let totals = monthTotals(records: records, containing: displayedMonth, years: selectedScheduleYears)
+        let totals = monthTotals(records: activeProfileRecords, containing: displayedMonth, years: selectedScheduleYears)
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("Month Totals")
@@ -216,7 +227,7 @@ struct CPTListView: View {
             }
 
             NavigationLink {
-                YearSummaryView(year: selectedYear, scheduleYears: selectedScheduleYears)
+                YearSummaryView(year: selectedYear, scheduleYears: selectedScheduleYears, workProfileIDString: activeWorkProfile?.id.uuidString)
             } label: {
                 Text("View Monthly RVUs")
                     .fontWeight(.semibold)
@@ -326,8 +337,8 @@ struct CPTListView: View {
     }
 }
 
-// Profile management screen. Profiles now own both preferences and migrated
-// charge records; later steps will filter the calendar and exports by owner.
+// Profile management screen. Profiles own preferences and charge records; the
+// calendar and summaries read only the active profile's records.
 private struct WorkProfileSettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -552,8 +563,8 @@ private struct WorkProfileSettingsView: View {
         applyActiveProfileSettings()
     }
 
-    // Deletes the profile selected in the confirmation alert, moving its saved
-    // records to the next available profile first.
+    // Deletes the profile selected in the confirmation alert. Same-date records
+    // are merged when moving charges onto the replacement profile.
     private func deletePendingProfile() {
         guard let profile = profilePendingDelete else { return }
         let remainingProfiles = workProfiles.filter { $0.id != profile.id }
@@ -565,8 +576,16 @@ private struct WorkProfileSettingsView: View {
         let deletedActiveProfile = profile.id.uuidString == activeWorkProfileID
         let replacementProfile = remainingProfiles[0]
 
-        for record in records where record.workProfileID == profile.id {
-            record.workProfileID = replacementProfile.id
+        let recordsToMove = records.filter { $0.workProfileID == profile.id }
+        for record in recordsToMove {
+            if let replacementRecord = records.first(where: {
+                $0.workProfileID == replacementProfile.id && $0.dayKey == record.dayKey
+            }) {
+                replacementRecord.counts = mergedCounts(replacementRecord.counts, record.counts)
+                modelContext.delete(record)
+            } else {
+                record.workProfileID = replacementProfile.id
+            }
         }
 
         modelContext.delete(profile)
@@ -578,6 +597,13 @@ private struct WorkProfileSettingsView: View {
 
         try? modelContext.save()
         profilePendingDelete = nil
+    }
+
+    // Adds CPT counts together when two profiles have charges on the same date.
+    private func mergedCounts(_ first: [Int: Int], _ second: [Int: Int]) -> [Int: Int] {
+        second.reduce(into: first) { partialResult, item in
+            partialResult[item.key, default: 0] += item.value
+        }
     }
 
     // Applies the selected profile's saved preferences to the shared controls.
@@ -845,6 +871,11 @@ struct DayChargeEntryView: View {
         workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
     }
 
+    // String form used in SwiftData predicates for profile/date lookups.
+    private var activeWorkProfileIDString: String {
+        activeWorkProfile?.id.uuidString ?? activeWorkProfileID
+    }
+
     // Active schedule years for result calculations.
     private var selectedScheduleYears: [Int] {
         selectedRVUYears(
@@ -1090,10 +1121,15 @@ struct DayChargeEntryView: View {
         #endif
     }
 
-    // ## Loads saved charge counts for the selected day into editable state.
+    // ## Loads saved charge counts for this profile and date into editable state.
     private func loadForDate() {
         let key = DayRecord.key(for: date)
-        var descriptor = FetchDescriptor<DayRecord>(predicate: #Predicate { $0.dayKey == key })
+        let profileIDString = activeWorkProfileIDString
+        var descriptor = FetchDescriptor<DayRecord>(
+            predicate: #Predicate {
+                $0.dayKey == key && $0.workProfileIDString == profileIDString
+            }
+        )
         descriptor.fetchLimit = 1
 
         let stored = (try? modelContext.fetch(descriptor).first)?.counts ?? [:]
@@ -1105,7 +1141,7 @@ struct DayChargeEntryView: View {
         extraCodeIDs = Set(stored.keys).subtracting(profileCodes.map(\.id))
     }
 
-    // ## Persists current day charges and presents the calculated result summary.
+    // ## Persists current profile's day charges and presents the result summary.
     private func saveCharges() {
         let normalized = chargeCounts.reduce(into: [Int: Int]()) { partialResult, item in
             let count = Int(item.value) ?? 0
@@ -1115,7 +1151,12 @@ struct DayChargeEntryView: View {
         }
 
         let key = DayRecord.key(for: date)
-        var descriptor = FetchDescriptor<DayRecord>(predicate: #Predicate { $0.dayKey == key })
+        let profileIDString = activeWorkProfileIDString
+        var descriptor = FetchDescriptor<DayRecord>(
+            predicate: #Predicate {
+                $0.dayKey == key && $0.workProfileIDString == profileIDString
+            }
+        )
         descriptor.fetchLimit = 1
 
         do {
@@ -1127,13 +1168,10 @@ struct DayChargeEntryView: View {
                 } else {
                     existing.date = DayRecord.startOfDay(for: date)
                     existing.counts = normalized
-                    // Backfill the owner if this day was created before profiles existed.
-                    if existing.workProfileID == nil {
-                        existing.workProfileID = activeWorkProfile?.id
-                    }
+                    existing.workProfileID = activeWorkProfile?.id
                 }
             } else if !normalized.isEmpty {
-                // New records are tagged now; filtering by active profile comes next.
+                // Store a separate same-date record for each profile.
                 modelContext.insert(DayRecord(date: date, counts: normalized, workProfileID: activeWorkProfile?.id))
             }
 
@@ -1180,6 +1218,13 @@ struct YearSummaryView: View {
 
     let year: Int
     let scheduleYears: [Int]
+    let workProfileIDString: String?
+
+    // Year totals are intentionally scoped to the profile selected on the main screen.
+    private var activeProfileRecords: [DayRecord] {
+        guard let workProfileIDString else { return [] }
+        return records.filter { $0.workProfileIDString == workProfileIDString }
+    }
 
     // Navigation title helper that avoids locale punctuation in the year.
     private var plainYearString: String {
@@ -1187,7 +1232,7 @@ struct YearSummaryView: View {
     }
 
     var body: some View {
-        let perMonth = monthlyTotals(records: records, year: year, scheduleYears: scheduleYears)
+        let perMonth = monthlyTotals(records: activeProfileRecords, year: year, scheduleYears: scheduleYears)
 
         List {
             Section {

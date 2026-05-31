@@ -151,7 +151,9 @@ final class WorkProfile {
 // record can also point at the work profile it belongs to.
 @Model
 final class DayRecord {
-    @Attribute(.unique) var dayKey: String
+    // Calendar-day key only. Multiple profiles may now have records for the
+    // same date, so lookups must pair this with workProfileIDString.
+    var dayKey: String
     var date: Date
     var countsData: Data
 
