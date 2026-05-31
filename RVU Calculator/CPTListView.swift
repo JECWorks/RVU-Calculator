@@ -1093,9 +1093,7 @@ struct RVUCalendarView: View {
         VStack(spacing: 10) {
             HStack {
                 Button {
-                    if let newMonth = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonth) {
-                        displayedMonth = newMonth
-                    }
+                    shiftDisplayedMonth(by: -1)
                 } label: {
                     Image(systemName: "chevron.left")
                 }
@@ -1109,9 +1107,7 @@ struct RVUCalendarView: View {
                 Spacer()
 
                 Button {
-                    if let newMonth = Calendar.current.date(byAdding: .month, value: 1, to: displayedMonth) {
-                        displayedMonth = newMonth
-                    }
+                    shiftDisplayedMonth(by: 1)
                 } label: {
                     Image(systemName: "chevron.right")
                 }
@@ -1145,6 +1141,13 @@ struct RVUCalendarView: View {
                 }
             }
         }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    handleMonthSwipe(value)
+                }
+        )
         // If the selected date changes elsewhere, keep the visible month in sync.
         .onChange(of: selectedDate) { _, newDate in
             let selectedMonth = Calendar.current.date(
@@ -1154,6 +1157,26 @@ struct RVUCalendarView: View {
                 displayedMonth = selectedMonth
             }
         }
+    }
+
+    // Moves the calendar by whole months for both arrow taps and swipe gestures.
+    private func shiftDisplayedMonth(by offset: Int) {
+        if let newMonth = Calendar.current.date(byAdding: .month, value: offset, to: displayedMonth) {
+            displayedMonth = newMonth
+        }
+    }
+
+    // Treats horizontal swipes as month changes and ignores mostly vertical drags.
+    private func handleMonthSwipe(_ value: DragGesture.Value) {
+        let horizontalDistance = value.translation.width
+        let verticalDistance = value.translation.height
+
+        guard abs(horizontalDistance) > abs(verticalDistance),
+              abs(horizontalDistance) > 40 else {
+            return
+        }
+
+        shiftDisplayedMonth(by: horizontalDistance < 0 ? 1 : -1)
     }
 }
 
@@ -1500,39 +1523,62 @@ struct DayChargeEntryView: View {
 
             Spacer()
 
-            countField(for: cpt)
+            countStepper(for: cpt)
         }
         .padding(.vertical, 4)
     }
 
-    // ## Provides numeric-only text binding for a CPT row count input.
-    private func binding(for cpt: CPTCode) -> Binding<String> {
-        Binding(
-            get: { chargeCounts[cpt.id, default: ""] },
-            set: { newValue in
-                chargeCounts[cpt.id] = newValue.filter(\.isNumber)
-                statusMessage = nil
-            }
-        )
+    // Current saved value for a CPT row; blank fields behave the same as zero.
+    private func countValue(for cpt: CPTCode) -> Int {
+        Int(chargeCounts[cpt.id, default: ""]) ?? 0
     }
 
-    // ## Keeps the row input portable while preserving the iOS numeric keyboard.
+    // Stores row counts as strings so the existing save/load path stays unchanged.
+    private func setCount(_ count: Int, for cpt: CPTCode) {
+        chargeCounts[cpt.id] = count > 0 ? String(count) : ""
+        statusMessage = nil
+    }
+
+    // Applies one tap from the row stepper without allowing negative charges.
+    private func adjustCount(for cpt: CPTCode, by amount: Int) {
+        let nextCount = max(0, countValue(for: cpt) + amount)
+        setCount(nextCount, for: cpt)
+    }
+
+    // Arrow-style charge entry avoids opening the keyboard during routine use.
     @ViewBuilder
-    private func countField(for cpt: CPTCode) -> some View {
-        #if os(iOS)
-        TextField("0", text: binding(for: cpt))
-            .font(.body.monospacedDigit())
-            .multilineTextAlignment(.trailing)
-            .keyboardType(.numberPad)
-            .frame(width: 80)
-            .textFieldStyle(.roundedBorder)
-        #else
-        TextField("0", text: binding(for: cpt))
-            .font(.body.monospacedDigit())
-            .multilineTextAlignment(.trailing)
-            .frame(width: 80)
-            .textFieldStyle(.roundedBorder)
-        #endif
+    private func countStepper(for cpt: CPTCode) -> some View {
+        let count = countValue(for: cpt)
+
+        HStack(spacing: 8) {
+            Button {
+                adjustCount(for: cpt, by: -1)
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(count > 0 ? .blue : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(count == 0)
+            .accessibilityLabel("Decrease \(cpt.code) count")
+
+            Text(String(count))
+                .font(.body.monospacedDigit())
+                .fontWeight(count > 0 ? .semibold : .regular)
+                .foregroundColor(count > 0 ? .primary : .secondary)
+                .frame(minWidth: 28)
+                .accessibilityLabel("\(cpt.code) count")
+                .accessibilityValue("\(count)")
+
+            Button {
+                adjustCount(for: cpt, by: 1)
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Increase \(cpt.code) count")
+        }
     }
 
     // Sheet content for choosing where a saved day's charges should move.
