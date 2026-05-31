@@ -89,6 +89,13 @@ struct CPTCode: Identifiable {
     func rvu(for year: Int) -> Double? {
         rvusByYear[year]
     }
+
+    // Codes without a value in the newest schedule are kept for older saved entries.
+    // Charge entry can push these to the bottom while leaving them available.
+    var isLegacyForChargeEntry: Bool {
+        guard let newestYear = supportedRVUYears.max() else { return false }
+        return rvusByYear[newestYear] == nil
+    }
 }
 
 // A named work context for the clinician using the app. Profiles let the user

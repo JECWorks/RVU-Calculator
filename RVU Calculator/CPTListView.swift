@@ -1285,16 +1285,20 @@ struct DayChargeEntryView: View {
 
     // The normal charge rows for the selected provider profile.
     private var profileCodes: [CPTCode] {
-        cptCodes.filter { $0.profiles.contains(selectedProfile) }
+        sortedForChargeEntry(
+            cptCodes.filter { $0.profiles.contains(selectedProfile) }
+        )
     }
 
     // Rows outside the active profile that have been searched/added or already have counts.
     // This prevents profile switching from hiding saved charges.
     private var additionalCodes: [CPTCode] {
-        cptCodes.filter { cpt in
-            !cpt.profiles.contains(selectedProfile)
-                && (extraCodeIDs.contains(cpt.id) || ((Int(chargeCounts[cpt.id, default: ""]) ?? 0) > 0))
-        }
+        sortedForChargeEntry(
+            cptCodes.filter { cpt in
+                !cpt.profiles.contains(selectedProfile)
+                    && (extraCodeIDs.contains(cpt.id) || ((Int(chargeCounts[cpt.id, default: ""]) ?? 0) > 0))
+            }
+        )
     }
 
     // Search only offers catalog rows that are not already visible on the screen.
@@ -1308,6 +1312,9 @@ struct DayChargeEntryView: View {
                     && !additionalCodes.contains { $0.id == cpt.id }
                     && (cpt.code.localizedCaseInsensitiveContains(query)
                         || cpt.description.localizedCaseInsensitiveContains(query))
+            }
+            .sorted { lhs, rhs in
+                chargeEntrySort(lhs, rhs)
             }
             .prefix(8)
             .map { $0 }
@@ -1485,6 +1492,22 @@ struct DayChargeEntryView: View {
         profile.baseRVUYear = baseRVUYear
         profile.comparisonRVUYear = comparisonRVUYear
         try? modelContext.save()
+    }
+
+    // Keeps current codes before legacy rows while preserving the catalog's normal order.
+    private func sortedForChargeEntry(_ codes: [CPTCode]) -> [CPTCode] {
+        codes.sorted { lhs, rhs in
+            chargeEntrySort(lhs, rhs)
+        }
+    }
+
+    // Legacy rows sort after currently priced rows; matching groups stay in catalog order.
+    private func chargeEntrySort(_ lhs: CPTCode, _ rhs: CPTCode) -> Bool {
+        if lhs.isLegacyForChargeEntry != rhs.isLegacyForChargeEntry {
+            return !lhs.isLegacyForChargeEntry
+        }
+
+        return lhs.id < rhs.id
     }
 
     // Compact profile selector shown above the daily charge list.
