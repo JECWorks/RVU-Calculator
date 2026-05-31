@@ -63,6 +63,36 @@ private struct CSVExportDocument: FileDocument {
     }
 }
 
+// Destination-date behavior when moving a saved charge record.
+private enum MoveChargeMode: String, CaseIterable, Identifiable {
+    case merge
+    case replace
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .merge: "Merge"
+        case .replace: "Replace"
+        }
+    }
+}
+
+// Whether a profile transfer removes the original record or leaves it in place.
+private enum ProfileTransferAction: String, CaseIterable, Identifiable {
+    case move
+    case copy
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .move: "Move"
+        case .copy: "Copy"
+        }
+    }
+}
+
 // AppStorage key used to remember the selected WorkProfile UUID string.
 private let activeWorkProfileIDKey = "activeWorkProfileID"
 private let defaultWorkProfileName = "Default"
@@ -1179,6 +1209,14 @@ struct DayChargeEntryView: View {
     @State private var summaryTotalsByYear: [Int: Double] = [:]
     @State private var summaryRows: [CPTSummary] = []
     @State private var showSummary = false
+    @State private var hasSavedRecordForDate = false
+    @State private var showMoveChargesSheet = false
+    @State private var moveDestinationDate = Date()
+    @State private var moveChargeMode = MoveChargeMode.merge
+    @State private var showTransferProfileSheet = false
+    @State private var destinationWorkProfileID = ""
+    @State private var profileTransferAction = ProfileTransferAction.move
+    @State private var profileTransferChargeMode = MoveChargeMode.merge
 
     // Used for the navigation title on the daily entry screen.
     private let dateFormatter: DateFormatter = {
@@ -1200,6 +1238,16 @@ struct DayChargeEntryView: View {
     // String form used in SwiftData predicates for profile/date lookups.
     private var activeWorkProfileIDString: String {
         activeWorkProfile?.id.uuidString ?? activeWorkProfileID
+    }
+
+    // Profiles other than the active one, used as transfer destinations.
+    private var destinationWorkProfiles: [WorkProfile] {
+        workProfiles.filter { $0.id.uuidString != activeWorkProfileIDString }
+    }
+
+    // A profile transfer needs saved charges and at least one other profile.
+    private var canTransferToAnotherProfile: Bool {
+        hasSavedRecordForDate && !destinationWorkProfiles.isEmpty
     }
 
     // Active schedule years for result calculations.
@@ -1310,6 +1358,36 @@ struct DayChargeEntryView: View {
                 }
             }
             .padding(.horizontal)
+
+            Button {
+                moveDestinationDate = date
+                moveChargeMode = .merge
+                showMoveChargesSheet = true
+            } label: {
+                Text("Move Saved Charges to Another Date")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(hasSavedRecordForDate ? Color.orange.opacity(0.18) : Color.gray.opacity(0.12))
+                    .foregroundColor(hasSavedRecordForDate ? .primary : .secondary)
+                    .cornerRadius(10)
+            }
+            .disabled(!hasSavedRecordForDate)
+            .padding(.horizontal)
+
+            Button {
+                prepareProfileTransfer()
+            } label: {
+                Text("Move or Copy Charges to Another Profile")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(canTransferToAnotherProfile ? Color.purple.opacity(0.16) : Color.gray.opacity(0.12))
+                    .foregroundColor(canTransferToAnotherProfile ? .primary : .secondary)
+                    .cornerRadius(10)
+            }
+            .disabled(!canTransferToAnotherProfile)
+            .padding(.horizontal)
             .padding(.bottom, 4)
 
             if let statusMessage {
@@ -1351,6 +1429,16 @@ struct DayChargeEntryView: View {
                         dismiss()
                     }
                 )
+            }
+        }
+        .sheet(isPresented: $showMoveChargesSheet) {
+            NavigationStack {
+                moveChargesSheet
+            }
+        }
+        .sheet(isPresented: $showTransferProfileSheet) {
+            NavigationStack {
+                transferProfileSheet
             }
         }
     }
@@ -1447,10 +1535,97 @@ struct DayChargeEntryView: View {
         #endif
     }
 
-    // ## Loads saved charge counts for this profile and date into editable state.
-    private func loadForDate() {
-        let key = DayRecord.key(for: date)
-        let profileIDString = activeWorkProfileIDString
+    // Sheet content for choosing where a saved day's charges should move.
+    private var moveChargesSheet: some View {
+        Form {
+            Section("Move Charges") {
+                LabeledContent("From", value: dateFormatter.string(from: date))
+
+                DatePicker(
+                    "To",
+                    selection: $moveDestinationDate,
+                    displayedComponents: [.date]
+                )
+
+                Picker("If destination has charges", selection: $moveChargeMode) {
+                    ForEach(MoveChargeMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section {
+                Button("Move Charges", action: moveChargesToSelectedDate)
+                    .disabled(Calendar.current.isDate(moveDestinationDate, inSameDayAs: date))
+            } footer: {
+                Text(moveChargeMode == .merge
+                     ? "Merge adds counts to any charges already saved on the destination date."
+                     : "Replace deletes any charges already saved on the destination date before moving these charges.")
+            }
+        }
+        .navigationTitle("Move Charges")
+        .toolbar {
+            Button("Cancel") {
+                showMoveChargesSheet = false
+            }
+        }
+    }
+
+    // Sheet content for moving or copying a saved day between profiles.
+    private var transferProfileSheet: some View {
+        Form {
+            Section("Transfer Charges") {
+                LabeledContent("Date", value: dateFormatter.string(from: date))
+                LabeledContent("From Profile", value: activeWorkProfile?.name ?? defaultWorkProfileName)
+
+                Picker("To Profile", selection: $destinationWorkProfileID) {
+                    ForEach(destinationWorkProfiles) { profile in
+                        Text(profile.name).tag(profile.id.uuidString)
+                    }
+                }
+
+                Picker("Action", selection: $profileTransferAction) {
+                    ForEach(ProfileTransferAction.allCases) { action in
+                        Text(action.displayName).tag(action)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Picker("If destination has charges", selection: $profileTransferChargeMode) {
+                    ForEach(MoveChargeMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section {
+                Button(profileTransferAction == .move ? "Move Charges" : "Copy Charges", action: transferChargesToSelectedProfile)
+                    .disabled(destinationWorkProfileID.isEmpty)
+            } footer: {
+                Text(profileTransferChargeMode == .merge
+                     ? "Merge adds counts to charges already saved for this date in the destination profile."
+                     : "Replace overwrites charges already saved for this date in the destination profile.")
+            }
+        }
+        .navigationTitle("Transfer Profile")
+        .toolbar {
+            Button("Cancel") {
+                showTransferProfileSheet = false
+            }
+        }
+    }
+
+    // Finds one saved charge record for the active profile and requested date.
+    private func savedRecord(for recordDate: Date) -> DayRecord? {
+        savedRecord(for: recordDate, workProfileIDString: activeWorkProfileIDString)
+    }
+
+    // Finds one saved charge record for a specific profile and date.
+    private func savedRecord(for recordDate: Date, workProfileIDString: String) -> DayRecord? {
+        let key = DayRecord.key(for: recordDate)
+        let profileIDString = workProfileIDString
         var descriptor = FetchDescriptor<DayRecord>(
             predicate: #Predicate {
                 $0.dayKey == key && $0.workProfileIDString == profileIDString
@@ -1458,35 +1633,28 @@ struct DayChargeEntryView: View {
         )
         descriptor.fetchLimit = 1
 
-        let stored = (try? modelContext.fetch(descriptor).first)?.counts ?? [:]
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    // ## Loads saved charge counts for this profile and date into editable state.
+    private func loadForDate() {
+        let savedRecord = savedRecord(for: date)
+        let stored = savedRecord?.counts ?? [:]
 
         chargeCounts = Dictionary(uniqueKeysWithValues: cptCodes.map { cpt in
             let count = stored[cpt.id] ?? 0
             return (cpt.id, count == 0 ? "" : String(count))
         })
         extraCodeIDs = Set(stored.keys).subtracting(profileCodes.map(\.id))
+        hasSavedRecordForDate = savedRecord != nil
     }
 
     // ## Persists current profile's day charges and presents the result summary.
     private func saveCharges() {
-        let normalized = chargeCounts.reduce(into: [Int: Int]()) { partialResult, item in
-            let count = Int(item.value) ?? 0
-            if count > 0 {
-                partialResult[item.key] = count
-            }
-        }
-
-        let key = DayRecord.key(for: date)
-        let profileIDString = activeWorkProfileIDString
-        var descriptor = FetchDescriptor<DayRecord>(
-            predicate: #Predicate {
-                $0.dayKey == key && $0.workProfileIDString == profileIDString
-            }
-        )
-        descriptor.fetchLimit = 1
+        let normalized = normalizedChargeCounts()
 
         do {
-            let existing = try modelContext.fetch(descriptor).first
+            let existing = savedRecord(for: date)
 
             if let existing {
                 if normalized.isEmpty {
@@ -1503,10 +1671,128 @@ struct DayChargeEntryView: View {
 
             try modelContext.save()
             statusMessage = nil
+            hasSavedRecordForDate = !normalized.isEmpty
             buildSummary(from: normalized)
             showSummary = true
         } catch {
             statusMessage = "Unable to save. Please try again."
+        }
+    }
+
+    // Current text-field values collapsed into positive integer CPT counts.
+    private func normalizedChargeCounts() -> [Int: Int] {
+        chargeCounts.reduce(into: [Int: Int]()) { partialResult, item in
+            let count = Int(item.value) ?? 0
+            if count > 0 {
+                partialResult[item.key] = count
+            }
+        }
+    }
+
+    // Initializes the profile-transfer sheet with a valid destination and safe defaults.
+    private func prepareProfileTransfer() {
+        guard let firstDestination = destinationWorkProfiles.first else { return }
+        destinationWorkProfileID = firstDestination.id.uuidString
+        profileTransferAction = .move
+        profileTransferChargeMode = .merge
+        showTransferProfileSheet = true
+    }
+
+    // Moves or copies this date's saved charges into another profile.
+    private func transferChargesToSelectedProfile() {
+        guard !destinationWorkProfileID.isEmpty else { return }
+        guard let sourceRecord = savedRecord(for: date) else {
+            statusMessage = "No saved charges found for this date."
+            showTransferProfileSheet = false
+            loadForDate()
+            return
+        }
+
+        let transferredCounts = sourceRecord.counts
+        let destinationProfileID = UUID(uuidString: destinationWorkProfileID)
+
+        do {
+            if let destinationRecord = savedRecord(for: date, workProfileIDString: destinationWorkProfileID) {
+                switch profileTransferChargeMode {
+                case .merge:
+                    destinationRecord.counts = mergedCounts(destinationRecord.counts, transferredCounts)
+                case .replace:
+                    destinationRecord.counts = transferredCounts
+                }
+                destinationRecord.workProfileID = destinationProfileID
+            } else {
+                modelContext.insert(DayRecord(date: date, counts: transferredCounts, workProfileID: destinationProfileID))
+            }
+
+            if profileTransferAction == .move {
+                modelContext.delete(sourceRecord)
+            }
+
+            try modelContext.save()
+            showTransferProfileSheet = false
+            statusMessage = profileTransferStatusMessage()
+            loadForDate()
+        } catch {
+            statusMessage = "Unable to transfer charges. Please try again."
+        }
+    }
+
+    // Short confirmation message after a profile move or copy succeeds.
+    private func profileTransferStatusMessage() -> String {
+        let destinationName = workProfiles.first { $0.id.uuidString == destinationWorkProfileID }?.name ?? "selected profile"
+        switch profileTransferAction {
+        case .move:
+            return "Moved charges to \(destinationName)."
+        case .copy:
+            return "Copied charges to \(destinationName)."
+        }
+    }
+
+    // Moves the saved record for this date to the selected destination date.
+    private func moveChargesToSelectedDate() {
+        guard !Calendar.current.isDate(moveDestinationDate, inSameDayAs: date) else { return }
+        guard let sourceRecord = savedRecord(for: date) else {
+            statusMessage = "No saved charges found for this date."
+            showMoveChargesSheet = false
+            loadForDate()
+            return
+        }
+
+        let destinationDate = DayRecord.startOfDay(for: moveDestinationDate)
+        let destinationKey = DayRecord.key(for: destinationDate)
+        let movedCounts = sourceRecord.counts
+
+        do {
+            if let destinationRecord = savedRecord(for: destinationDate) {
+                switch moveChargeMode {
+                case .merge:
+                    destinationRecord.counts = mergedCounts(destinationRecord.counts, movedCounts)
+                case .replace:
+                    destinationRecord.counts = movedCounts
+                }
+                destinationRecord.date = destinationDate
+                destinationRecord.dayKey = destinationKey
+                destinationRecord.workProfileID = activeWorkProfile?.id
+                modelContext.delete(sourceRecord)
+            } else {
+                sourceRecord.date = destinationDate
+                sourceRecord.dayKey = destinationKey
+                sourceRecord.workProfileID = activeWorkProfile?.id
+            }
+
+            try modelContext.save()
+            showMoveChargesSheet = false
+            statusMessage = "Moved charges to \(dateFormatter.string(from: destinationDate))."
+            loadForDate()
+        } catch {
+            statusMessage = "Unable to move charges. Please try again."
+        }
+    }
+
+    // Adds matching CPT counts when moving into a destination day with saved charges.
+    private func mergedCounts(_ first: [Int: Int], _ second: [Int: Int]) -> [Int: Int] {
+        second.reduce(into: first) { partialResult, item in
+            partialResult[item.key, default: 0] += item.value
         }
     }
 
