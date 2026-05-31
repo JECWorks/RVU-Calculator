@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-// Groups the CPT/HCPCS catalog into clinician-facing charge-entry profiles.
+// Groups the CPT/HCPCS catalog into clinician-facing specialties.
 // The raw value is stored in AppStorage, so keep these case names stable.
 enum ProviderProfile: String, CaseIterable, Identifiable {
     case hospitalist
@@ -22,7 +22,7 @@ enum ProviderProfile: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    // Human-readable label used in the profile picker.
+    // Human-readable label used in the specialty picker.
     var displayName: String {
         switch self {
         case .hospitalist: "Hospitalist"
@@ -98,7 +98,7 @@ struct CPTCode: Identifiable {
     }
 }
 
-// A named work context for the clinician using the app. Profiles let the user
+// A named work context for the clinician using the app. Work profiles let the user
 // keep separate default charge-entry and RVU schedule preferences for each job.
 @Model
 final class WorkProfile {
@@ -114,12 +114,12 @@ final class WorkProfile {
     var providerProfileRaw: String
     var scheduleModeRaw: String
 
-    // Default RVU schedule selections restored when the user switches profiles.
+    // Default RVU schedule selections restored when the user switches work profiles.
     var singleRVUYear: Int
     var baseRVUYear: Int
     var comparisonRVUYear: Int
 
-    // Creation date gives the profile picker a stable chronological sort order.
+    // Creation date gives the work profile picker a stable chronological sort order.
     var createdAt: Date
 
     init(
@@ -142,7 +142,7 @@ final class WorkProfile {
         self.createdAt = createdAt
     }
 
-    // Typed view of the saved provider-profile string for display/filtering.
+    // Typed view of the saved specialty string for display/filtering.
     var providerProfile: ProviderProfile {
         ProviderProfile(rawValue: providerProfileRaw) ?? .hospitalist
     }
@@ -158,14 +158,14 @@ final class WorkProfile {
 // record can also point at the work profile it belongs to.
 @Model
 final class DayRecord {
-    // Calendar-day key only. Multiple profiles may now have records for the
+    // Calendar-day key only. Multiple work profiles may now have records for the
     // same date, so lookups must pair this with workProfileIDString.
     var dayKey: String
     var date: Date
     var countsData: Data
 
     // Optional during migration: older saved records will be assigned to the
-    // Default profile when the app starts.
+    // Default work profile when the app starts.
     var workProfileIDString: String?
 
     init(date: Date, counts: [Int: Int], workProfileID: UUID? = nil) {
@@ -186,7 +186,7 @@ final class DayRecord {
         }
     }
 
-    // Typed profile owner used by migration and future profile-scoped queries.
+    // Typed work profile owner used by migration and future scoped queries.
     var workProfileID: UUID? {
         get {
             guard let workProfileIDString else { return nil }

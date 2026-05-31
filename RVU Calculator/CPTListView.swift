@@ -78,7 +78,7 @@ private enum MoveChargeMode: String, CaseIterable, Identifiable {
     }
 }
 
-// Whether a profile transfer removes the original record or leaves it in place.
+// Whether a work profile transfer removes the original record or leaves it in place.
 private enum ProfileTransferAction: String, CaseIterable, Identifiable {
     case move
     case copy
@@ -97,7 +97,7 @@ private enum ProfileTransferAction: String, CaseIterable, Identifiable {
 private let activeWorkProfileIDKey = "activeWorkProfileID"
 private let defaultWorkProfileName = "Default"
 
-// Earlier profile builds used this starter name; keep it only for migration.
+// Earlier work profile builds used this starter name; keep it only for migration.
 private let legacyDefaultWorkProfileName = "Current Job"
 
 // Main landing screen: calendar, schedule controls, month totals, and year summary entry.
@@ -110,7 +110,7 @@ struct CPTListView: View {
     // Available saved work profiles, ordered by creation date for stable menus.
     @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
 
-    // Profile and schedule preferences are still stored in AppStorage for the
+    // Specialty and schedule preferences are still stored in AppStorage for the
     // shared controls, then mirrored into the active WorkProfile.
     @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
     @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
@@ -157,7 +157,7 @@ struct CPTListView: View {
         return records.filter { $0.workProfileIDString == activeProfileIDString }
     }
 
-    // Toolbar label for the profile/preferences entry point.
+    // Toolbar label for the work profile/preferences entry point.
     private var activeWorkProfileName: String {
         activeWorkProfile?.name ?? defaultWorkProfileName
     }
@@ -202,7 +202,7 @@ struct CPTListView: View {
         }
         .navigationTitle("RVU Calculator")
         .toolbar {
-            // Opens the profile/preferences page from the main calendar screen.
+            // Opens the work profile/preferences page from the main calendar screen.
             NavigationLink {
                 PreferencesView()
             } label: {
@@ -236,7 +236,7 @@ struct CPTListView: View {
         }
     }
 
-    // Shows the visible calendar month's running RVU total for the active profile.
+    // Shows the visible calendar month's running RVU total for the active work profile.
     private var monthTotalCard: some View {
         let totals = monthTotals(records: activeProfileRecords, containing: displayedMonth, years: selectedScheduleYears)
 
@@ -314,8 +314,8 @@ struct CPTListView: View {
         .cornerRadius(10)
     }
 
-    // Creates or selects the Default profile, then assigns older unowned records
-    // to it. This keeps existing user data available before profile filtering is added.
+    // Creates or selects the Default work profile, then assigns older unowned records
+    // to it. This keeps existing user data available before work profile filtering is added.
     private func ensureActiveWorkProfile() {
         let defaultProfile = ensureDefaultWorkProfile()
 
@@ -327,8 +327,8 @@ struct CPTListView: View {
         assignUnownedRecords(to: defaultProfile)
     }
 
-    // Returns the Default profile, creating it for new installs or renaming the
-    // legacy first-run profile from the earlier implementation pass.
+    // Returns the Default work profile, creating it for new installs or renaming
+    // the legacy first-run profile from the earlier implementation pass.
     private func ensureDefaultWorkProfile() -> WorkProfile {
         if let defaultProfile = workProfiles.first(where: { $0.name == defaultWorkProfileName }) {
             return defaultProfile
@@ -354,7 +354,7 @@ struct CPTListView: View {
         return profile
     }
 
-    // Marks records created before profiles existed as belonging to Default.
+    // Marks records created before work profiles existed as belonging to Default.
     private func assignUnownedRecords(to profile: WorkProfile) {
         var updatedRecord = false
         for record in records where record.workProfileID == nil {
@@ -367,7 +367,7 @@ struct CPTListView: View {
         }
     }
 
-    // Loads the selected profile's saved specialty and RVU schedule preferences
+    // Loads the selected work profile's saved specialty and RVU schedule preferences
     // back into the existing AppStorage-backed controls.
     private func applyActiveWorkProfileSettings() {
         guard let profile = activeWorkProfile else { return }
@@ -379,7 +379,7 @@ struct CPTListView: View {
     }
 
     // Persists changes from the shared specialty/schedule controls onto the
-    // active profile so switching profiles restores each job's preferences.
+    // active work profile so switching contexts restores each job's preferences.
     private func saveCurrentSettingsToActiveWorkProfile() {
         guard let profile = activeWorkProfile else { return }
         profile.providerProfileRaw = selectedProfileRaw
@@ -391,17 +391,17 @@ struct CPTListView: View {
     }
 }
 
-// Preferences screen for profile selection, profile defaults, and saved-profile management.
+// Preferences screen for work profile selection, defaults, and saved-context management.
 private struct PreferencesView: View {
     @Environment(\.modelContext) private var modelContext
 
-    // Profile list shown in the picker and management section.
+    // Work profile list shown in the picker and management section.
     @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
 
     // Used when assigning older records to Default or reassigning records after deletion.
     @Query(sort: \DayRecord.date) private var records: [DayRecord]
 
-    // Shared settings backing the existing profile and RVU schedule controls.
+    // Shared settings backing the existing specialty and RVU schedule controls.
     @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
     @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
@@ -423,12 +423,12 @@ private struct PreferencesView: View {
         case allProfiles
     }
 
-    // Current profile used for the active profile summary and defaults.
+    // Current work profile used for the active summary and defaults.
     private var activeProfile: WorkProfile? {
         workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
     }
 
-    // Active profile's records, used for a quick data-footprint summary.
+    // Active work profile's records, used for a quick data-footprint summary.
     private var activeProfileRecords: [DayRecord] {
         guard let activeProfileIDString = activeProfile?.id.uuidString else { return [] }
         return records.filter { $0.workProfileIDString == activeProfileIDString }
@@ -450,8 +450,8 @@ private struct PreferencesView: View {
     var body: some View {
         List {
             // Picker for switching the whole app to another saved work context.
-            Section("Active Profile") {
-                Picker("Profile", selection: $activeWorkProfileID) {
+            Section("Active Work Profile") {
+                Picker("Work Profile", selection: $activeWorkProfileID) {
                     ForEach(workProfiles) { profile in
                         Text(profile.name).tag(profile.id.uuidString)
                     }
@@ -463,7 +463,7 @@ private struct PreferencesView: View {
             }
 
             // Default entry settings restored whenever this profile becomes active.
-            Section("Profile Defaults") {
+            Section("Work Profile Defaults") {
                 profileDefaultControls
             }
 
@@ -473,15 +473,15 @@ private struct PreferencesView: View {
             }
 
             // Creates a new profile using the current specialty/schedule settings.
-            Section("Add Profile") {
-                TextField("Profile name", text: $newProfileName)
+            Section("Add Work Profile") {
+                TextField("Work profile name", text: $newProfileName)
 
-                Button("Add Profile", action: addProfile)
+                Button("Add Work Profile", action: addProfile)
                     .disabled(trimmedNewProfileName.isEmpty)
             }
 
             // Rename, duplicate, or remove saved profile definitions.
-            Section("Manage Profiles") {
+            Section("Manage Work Profiles") {
                 ForEach(workProfiles) { profile in
                     profileManagementRow(profile)
                 }
@@ -507,7 +507,7 @@ private struct PreferencesView: View {
         .onChange(of: comparisonRVUYear) { _, _ in
             saveCurrentSettingsToActiveProfile()
         }
-        .alert("Delete Profile?", isPresented: deleteAlertBinding) {
+        .alert("Delete Work Profile?", isPresented: deleteAlertBinding) {
             Button("Cancel", role: .cancel) {
                 profilePendingDelete = nil
             }
@@ -515,7 +515,7 @@ private struct PreferencesView: View {
                 deletePendingProfile()
             }
         } message: {
-            Text("Any saved charges assigned to this profile will move to another available profile.")
+            Text("Any saved charges assigned to this work profile will move to another available work profile.")
         }
         .alert("Reset Charge Data?", isPresented: resetAlertBinding) {
             Button("Cancel", role: .cancel) {
@@ -567,22 +567,22 @@ private struct PreferencesView: View {
     private var resetAlertMessage: String {
         switch resetScopePendingConfirmation {
         case .activeProfile:
-            return "This deletes saved charges for \(activeProfile?.name ?? defaultWorkProfileName). Profile settings will remain."
+            return "This deletes saved charges for \(activeProfile?.name ?? defaultWorkProfileName). Work profile settings will remain."
         case .allProfiles:
-            return "This deletes saved charges from every profile. Profile settings will remain."
+            return "This deletes saved charges from every work profile. Work profile settings will remain."
         case nil:
             return ""
         }
     }
 
-    // Read-only summary of the preferences stored on a profile.
+    // Read-only summary of the preferences stored on a work profile.
     @ViewBuilder
     private func profileDetail(profile: WorkProfile) -> some View {
         LabeledContent("Saved Days", value: String(activeProfileRecords.count))
         LabeledContent("Created", value: profile.createdAt.formatted(date: .abbreviated, time: .omitted))
     }
 
-    // Editable defaults for the profile currently selected above.
+    // Editable defaults for the work profile currently selected above.
     private var profileDefaultControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("Default Specialty", selection: $selectedProfileRaw) {
@@ -623,19 +623,19 @@ private struct PreferencesView: View {
     // Buttons for exporting CSVs and clearing saved charge data.
     private var dataManagementControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button("Export Current Profile CSV") {
+            Button("Export Current Work Profile CSV") {
                 exportCSV(records: activeProfileRecords, filename: csvFilename(for: activeProfile?.name ?? defaultWorkProfileName))
             }
             .disabled(activeProfileRecords.isEmpty)
 
-            Button("Export All Profiles CSV") {
-                exportCSV(records: allChargeRecords, filename: "RVU-All-Profiles.csv")
+            Button("Export All Work Profiles CSV") {
+                exportCSV(records: allChargeRecords, filename: "RVU-All-Work-Profiles.csv")
             }
             .disabled(allChargeRecords.isEmpty)
 
             Divider()
 
-            Button("Delete Current Profile Charges", role: .destructive) {
+            Button("Delete Current Work Profile Charges", role: .destructive) {
                 resetScopePendingConfirmation = .activeProfile
             }
             .disabled(activeProfileRecords.isEmpty)
@@ -654,10 +654,10 @@ private struct PreferencesView: View {
         .padding(.vertical, 4)
     }
 
-    // One editable row in the Manage Profiles section.
+    // One editable row in the Manage Work Profiles section.
     private func profileManagementRow(_ profile: WorkProfile) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextField("Profile name", text: nameBinding(for: profile))
+            TextField("Work profile name", text: nameBinding(for: profile))
                 .font(.headline)
 
             HStack {
@@ -690,14 +690,14 @@ private struct PreferencesView: View {
             get: { profile.name },
             set: { newValue in
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                profile.name = trimmed.isEmpty ? "Untitled Profile" : newValue
+                profile.name = trimmed.isEmpty ? "Untitled Work Profile" : newValue
                 try? modelContext.save()
             }
         )
     }
 
-    // Ensures the settings page has a Default profile and migrates older records
-    // that were saved before profiles existed.
+    // Ensures the settings page has a Default work profile and migrates older
+    // records that were saved before work profiles existed.
     private func ensureProfileExists() {
         let defaultProfile = ensureDefaultWorkProfile()
 
@@ -709,7 +709,7 @@ private struct PreferencesView: View {
         assignUnownedRecords(to: defaultProfile)
     }
 
-    // Returns the Default profile, preserving a legacy starter profile by
+    // Returns the Default work profile, preserving a legacy starter profile by
     // renaming it instead of creating a duplicate.
     private func ensureDefaultWorkProfile() -> WorkProfile {
         if let defaultProfile = workProfiles.first(where: { $0.name == defaultWorkProfileName }) {
@@ -736,7 +736,7 @@ private struct PreferencesView: View {
         return profile
     }
 
-    // Gives existing records a profile owner exactly once.
+    // Gives existing records a work profile owner exactly once.
     private func assignUnownedRecords(to profile: WorkProfile) {
         var updatedRecord = false
         for record in records where record.workProfileID == nil {
@@ -770,7 +770,7 @@ private struct PreferencesView: View {
         try? modelContext.save()
     }
 
-    // Copies a profile's preferences into a new active profile.
+    // Copies a work profile's preferences into a new active work profile.
     private func duplicateProfile(_ profile: WorkProfile) {
         let copy = WorkProfile(
             name: "\(profile.name) Copy",
@@ -834,7 +834,7 @@ private struct PreferencesView: View {
             ["Work RVU \(year)", "Total RVU \(year)"]
         }
 
-        return csvLine(["Profile", "Date", "CPT Code", "Description", "Count"] + yearColumns)
+        return csvLine(["Work Profile", "Date", "CPT Code", "Description", "Count"] + yearColumns)
     }
 
     // Converts one saved CPT count into a CSV row.
@@ -872,7 +872,7 @@ private struct PreferencesView: View {
             .joined(separator: ",")
     }
 
-    // File-system-friendly export name based on the selected profile.
+    // File-system-friendly export name based on the selected work profile.
     private func csvFilename(for profileName: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         let cleaned = profileName
@@ -899,7 +899,7 @@ private struct PreferencesView: View {
         resetScopePendingConfirmation = nil
     }
 
-    // Deletes charge records while leaving profiles and preferences untouched.
+    // Deletes charge records while leaving work profiles and preferences untouched.
     private func deleteRecords(_ recordsToDelete: [DayRecord]) {
         for record in recordsToDelete {
             modelContext.delete(record)
@@ -908,8 +908,8 @@ private struct PreferencesView: View {
         try? modelContext.save()
     }
 
-    // Deletes the profile selected in the confirmation alert. Same-date records
-    // are merged when moving charges onto the replacement profile.
+    // Deletes the work profile selected in the confirmation alert. Same-date
+    // records are merged when moving charges onto the replacement work profile.
     private func deletePendingProfile() {
         guard let profile = profilePendingDelete else { return }
         let remainingProfiles = workProfiles.filter { $0.id != profile.id }
@@ -944,14 +944,14 @@ private struct PreferencesView: View {
         profilePendingDelete = nil
     }
 
-    // Adds CPT counts together when two profiles have charges on the same date.
+    // Adds CPT counts together when two work profiles have charges on the same date.
     private func mergedCounts(_ first: [Int: Int], _ second: [Int: Int]) -> [Int: Int] {
         second.reduce(into: first) { partialResult, item in
             partialResult[item.key, default: 0] += item.value
         }
     }
 
-    // Applies the selected profile's saved preferences to the shared controls.
+    // Applies the selected work profile's saved preferences to the shared controls.
     private func applyActiveProfileSettings() {
         guard let profile = activeProfile else { return }
         selectedProfileRaw = profile.providerProfileRaw
@@ -961,7 +961,7 @@ private struct PreferencesView: View {
         comparisonRVUYear = profile.comparisonRVUYear
     }
 
-    // Saves edits from the Profile Defaults section onto the selected profile.
+    // Saves edits from the Work Profile Defaults section onto the selected work profile.
     private func saveCurrentSettingsToActiveProfile() {
         guard let profile = activeProfile else { return }
         profile.providerProfileRaw = selectedProfileRaw
@@ -1204,15 +1204,15 @@ private struct DayCell: View {
     }
 }
 
-// Daily charge-entry workflow: profile-specific list, full-catalog search, save, and results.
+// Daily charge-entry workflow: specialty-specific list, full-catalog search, save, and results.
 struct DayChargeEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    // Used to keep daily-entry specialty/schedule edits synced with the active profile.
+    // Used to keep daily-entry specialty/schedule edits synced with the active work profile.
     @Query(sort: \WorkProfile.createdAt) private var workProfiles: [WorkProfile]
 
-    // Profile and schedule choices are remembered globally so daily entry stays fast.
+    // Specialty and schedule choices are remembered globally so daily entry stays fast.
     @AppStorage(activeWorkProfileIDKey) private var activeWorkProfileID = ""
     @AppStorage("selectedProviderProfile") private var selectedProfileRaw = ProviderProfile.hospitalist.rawValue
     @AppStorage("rvuScheduleMode") private var scheduleModeRaw = RVUScheduleMode.compare.rawValue
@@ -1225,7 +1225,7 @@ struct DayChargeEntryView: View {
     // Text values are stored while editing so empty fields can stay visually empty.
     @State private var chargeCounts: [Int: String] = [:]
 
-    // Tracks searched/added codes that are outside the active profile but should be visible today.
+    // Tracks searched/added codes that are outside the active specialty but should be visible today.
     @State private var extraCodeIDs: Set<Int> = []
     @State private var searchText = ""
     @State private var statusMessage: String?
@@ -1248,7 +1248,7 @@ struct DayChargeEntryView: View {
         return formatter
     }()
 
-    // Converts the stored raw profile value into the enum used by filtering logic.
+    // Converts the stored raw specialty value into the enum used by filtering logic.
     private var selectedProfile: ProviderProfile {
         ProviderProfile(rawValue: selectedProfileRaw) ?? .hospitalist
     }
@@ -1263,12 +1263,12 @@ struct DayChargeEntryView: View {
         activeWorkProfile?.id.uuidString ?? activeWorkProfileID
     }
 
-    // Profiles other than the active one, used as transfer destinations.
+    // Work profiles other than the active one, used as transfer destinations.
     private var destinationWorkProfiles: [WorkProfile] {
         workProfiles.filter { $0.id.uuidString != activeWorkProfileIDString }
     }
 
-    // A profile transfer needs saved charges and at least one other profile.
+    // A work profile transfer needs saved charges and at least one other work profile.
     private var canTransferToAnotherProfile: Bool {
         hasSavedRecordForDate && !destinationWorkProfiles.isEmpty
     }
@@ -1283,15 +1283,15 @@ struct DayChargeEntryView: View {
         )
     }
 
-    // The normal charge rows for the selected provider profile.
+    // The normal charge rows for the selected specialty.
     private var profileCodes: [CPTCode] {
         sortedForChargeEntry(
             cptCodes.filter { $0.profiles.contains(selectedProfile) }
         )
     }
 
-    // Rows outside the active profile that have been searched/added or already have counts.
-    // This prevents profile switching from hiding saved charges.
+    // Rows outside the active specialty that have been searched/added or already have counts.
+    // This prevents specialty switching from hiding saved charges.
     private var additionalCodes: [CPTCode] {
         sortedForChargeEntry(
             cptCodes.filter { cpt in
@@ -1322,14 +1322,14 @@ struct DayChargeEntryView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            profilePicker
+            specialtyPicker
                 .padding(.horizontal)
 
             ScheduleControls()
                 .padding(.horizontal)
 
             List {
-                Section("Profile Codes") {
+                Section("Specialty Codes") {
                     ForEach(profileCodes) { cpt in
                         codeRow(for: cpt)
                     }
@@ -1408,7 +1408,7 @@ struct DayChargeEntryView: View {
             Button {
                 prepareProfileTransfer()
             } label: {
-                Text("Move or Copy Charges to Another Profile")
+                Text("Move or Copy Charges to Another Work Profile")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding(10)
@@ -1473,7 +1473,7 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Restores the active profile's specialty/schedule settings before loading rows.
+    // Restores the active work profile's specialty/schedule settings before loading rows.
     private func applyActiveWorkProfileSettings() {
         guard let profile = activeWorkProfile else { return }
         selectedProfileRaw = profile.providerProfileRaw
@@ -1483,7 +1483,7 @@ struct DayChargeEntryView: View {
         comparisonRVUYear = profile.comparisonRVUYear
     }
 
-    // Captures changes made from the daily charge-entry controls on the active profile.
+    // Captures changes made from the daily charge-entry controls on the active work profile.
     private func saveCurrentSettingsToActiveWorkProfile() {
         guard let profile = activeWorkProfile else { return }
         profile.providerProfileRaw = selectedProfileRaw
@@ -1510,15 +1510,15 @@ struct DayChargeEntryView: View {
         return lhs.id < rhs.id
     }
 
-    // Compact profile selector shown above the daily charge list.
-    private var profilePicker: some View {
+    // Compact specialty selector shown above the daily charge list.
+    private var specialtyPicker: some View {
         HStack {
-            Text("Profile")
+            Text("Specialty")
                 .font(.headline)
 
             Spacer()
 
-            Picker("Profile", selection: $selectedProfileRaw) {
+            Picker("Specialty", selection: $selectedProfileRaw) {
                 ForEach(ProviderProfile.allCases) { profile in
                     Text(profile.displayName).tag(profile.rawValue)
                 }
@@ -1527,7 +1527,7 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Shared row layout for profile rows and additional searched rows.
+    // Shared row layout for specialty rows and additional searched rows.
     private func codeRow(for cpt: CPTCode) -> some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
@@ -1641,14 +1641,14 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Sheet content for moving or copying a saved day between profiles.
+    // Sheet content for moving or copying a saved day between work profiles.
     private var transferProfileSheet: some View {
         Form {
             Section("Transfer Charges") {
                 LabeledContent("Date", value: dateFormatter.string(from: date))
-                LabeledContent("From Profile", value: activeWorkProfile?.name ?? defaultWorkProfileName)
+                LabeledContent("From Work Profile", value: activeWorkProfile?.name ?? defaultWorkProfileName)
 
-                Picker("To Profile", selection: $destinationWorkProfileID) {
+                Picker("To Work Profile", selection: $destinationWorkProfileID) {
                     ForEach(destinationWorkProfiles) { profile in
                         Text(profile.name).tag(profile.id.uuidString)
                     }
@@ -1674,11 +1674,11 @@ struct DayChargeEntryView: View {
                     .disabled(destinationWorkProfileID.isEmpty)
             } footer: {
                 Text(profileTransferChargeMode == .merge
-                     ? "Merge adds counts to charges already saved for this date in the destination profile."
-                     : "Replace overwrites charges already saved for this date in the destination profile.")
+                     ? "Merge adds counts to charges already saved for this date in the destination work profile."
+                     : "Replace overwrites charges already saved for this date in the destination work profile.")
             }
         }
-        .navigationTitle("Transfer Profile")
+        .navigationTitle("Transfer Work Profile")
         .toolbar {
             Button("Cancel") {
                 showTransferProfileSheet = false
@@ -1686,12 +1686,12 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Finds one saved charge record for the active profile and requested date.
+    // Finds one saved charge record for the active work profile and requested date.
     private func savedRecord(for recordDate: Date) -> DayRecord? {
         savedRecord(for: recordDate, workProfileIDString: activeWorkProfileIDString)
     }
 
-    // Finds one saved charge record for a specific profile and date.
+    // Finds one saved charge record for a specific work profile and date.
     private func savedRecord(for recordDate: Date, workProfileIDString: String) -> DayRecord? {
         let key = DayRecord.key(for: recordDate)
         let profileIDString = workProfileIDString
@@ -1705,7 +1705,7 @@ struct DayChargeEntryView: View {
         return try? modelContext.fetch(descriptor).first
     }
 
-    // ## Loads saved charge counts for this profile and date into editable state.
+    // ## Loads saved charge counts for this work profile and date into editable state.
     private func loadForDate() {
         let savedRecord = savedRecord(for: date)
         let stored = savedRecord?.counts ?? [:]
@@ -1718,7 +1718,7 @@ struct DayChargeEntryView: View {
         hasSavedRecordForDate = savedRecord != nil
     }
 
-    // ## Persists current profile's day charges and presents the result summary.
+    // ## Persists current work profile's day charges and presents the result summary.
     private func saveCharges() {
         let normalized = normalizedChargeCounts()
 
@@ -1758,7 +1758,7 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Initializes the profile-transfer sheet with a valid destination and safe defaults.
+    // Initializes the work profile-transfer sheet with a valid destination and safe defaults.
     private func prepareProfileTransfer() {
         guard let firstDestination = destinationWorkProfiles.first else { return }
         destinationWorkProfileID = firstDestination.id.uuidString
@@ -1767,7 +1767,7 @@ struct DayChargeEntryView: View {
         showTransferProfileSheet = true
     }
 
-    // Moves or copies this date's saved charges into another profile.
+    // Moves or copies this date's saved charges into another work profile.
     private func transferChargesToSelectedProfile() {
         guard !destinationWorkProfileID.isEmpty else { return }
         guard let sourceRecord = savedRecord(for: date) else {
@@ -1806,9 +1806,9 @@ struct DayChargeEntryView: View {
         }
     }
 
-    // Short confirmation message after a profile move or copy succeeds.
+    // Short confirmation message after a work profile move or copy succeeds.
     private func profileTransferStatusMessage() -> String {
-        let destinationName = workProfiles.first { $0.id.uuidString == destinationWorkProfileID }?.name ?? "selected profile"
+        let destinationName = workProfiles.first { $0.id.uuidString == destinationWorkProfileID }?.name ?? "selected work profile"
         switch profileTransferAction {
         case .move:
             return "Moved charges to \(destinationName)."
