@@ -150,7 +150,7 @@ struct CPTListView: View {
         .toolbar {
             // Opens the profile/preferences page from the main calendar screen.
             NavigationLink {
-                WorkProfileSettingsView()
+                PreferencesView()
             } label: {
                 Label(activeWorkProfileName, systemImage: "person.crop.circle")
             }
@@ -337,9 +337,8 @@ struct CPTListView: View {
     }
 }
 
-// Profile management screen. Profiles own preferences and charge records; the
-// calendar and summaries read only the active profile's records.
-private struct WorkProfileSettingsView: View {
+// Preferences screen for profile selection, profile defaults, and saved-profile management.
+private struct PreferencesView: View {
     @Environment(\.modelContext) private var modelContext
 
     // Profile list shown in the picker and management section.
@@ -359,9 +358,23 @@ private struct WorkProfileSettingsView: View {
     @State private var newProfileName = ""
     @State private var profilePendingDelete: WorkProfile?
 
-    // Current profile used for the summary rows in the Active Profile section.
+    // Current profile used for the active profile summary and defaults.
     private var activeProfile: WorkProfile? {
         workProfiles.first { $0.id.uuidString == activeWorkProfileID } ?? workProfiles.first
+    }
+
+    // Active profile's records, used for a quick data-footprint summary.
+    private var activeProfileRecords: [DayRecord] {
+        guard let activeProfileIDString = activeProfile?.id.uuidString else { return [] }
+        return records.filter { $0.workProfileIDString == activeProfileIDString }
+    }
+
+    // Binding for the schedule mode segmented control.
+    private var scheduleMode: Binding<String> {
+        Binding(
+            get: { scheduleModeRaw },
+            set: { scheduleModeRaw = $0 }
+        )
     }
 
     var body: some View {
@@ -379,6 +392,11 @@ private struct WorkProfileSettingsView: View {
                 }
             }
 
+            // Default entry settings restored whenever this profile becomes active.
+            Section("Profile Defaults") {
+                profileDefaultControls
+            }
+
             // Creates a new profile using the current specialty/schedule settings.
             Section("Add Profile") {
                 TextField("Profile name", text: $newProfileName)
@@ -394,10 +412,25 @@ private struct WorkProfileSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Profiles")
+        .navigationTitle("Preferences")
         .onAppear(perform: ensureProfileExists)
         .onChange(of: activeWorkProfileID) { _, _ in
             applyActiveProfileSettings()
+        }
+        .onChange(of: selectedProfileRaw) { _, _ in
+            saveCurrentSettingsToActiveProfile()
+        }
+        .onChange(of: scheduleModeRaw) { _, _ in
+            saveCurrentSettingsToActiveProfile()
+        }
+        .onChange(of: singleRVUYear) { _, _ in
+            saveCurrentSettingsToActiveProfile()
+        }
+        .onChange(of: baseRVUYear) { _, _ in
+            saveCurrentSettingsToActiveProfile()
+        }
+        .onChange(of: comparisonRVUYear) { _, _ in
+            saveCurrentSettingsToActiveProfile()
         }
         .alert("Delete Profile?", isPresented: deleteAlertBinding) {
             Button("Cancel", role: .cancel) {
@@ -427,8 +460,46 @@ private struct WorkProfileSettingsView: View {
     // Read-only summary of the preferences stored on a profile.
     @ViewBuilder
     private func profileDetail(profile: WorkProfile) -> some View {
-        LabeledContent("Default Specialty", value: profile.providerProfile.displayName)
-        LabeledContent("RVU Schedule", value: profile.scheduleMode.displayName)
+        LabeledContent("Saved Days", value: String(activeProfileRecords.count))
+        LabeledContent("Created", value: profile.createdAt.formatted(date: .abbreviated, time: .omitted))
+    }
+
+    // Editable defaults for the profile currently selected above.
+    private var profileDefaultControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Default Specialty", selection: $selectedProfileRaw) {
+                ForEach(ProviderProfile.allCases) { profile in
+                    Text(profile.displayName).tag(profile.rawValue)
+                }
+            }
+
+            Picker("RVU Schedule", selection: scheduleMode) {
+                ForEach(RVUScheduleMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if (RVUScheduleMode(rawValue: scheduleModeRaw) ?? .compare) == .single {
+                preferenceYearPicker("Default Year", selection: $singleRVUYear)
+            } else {
+                HStack {
+                    preferenceYearPicker("Base Year", selection: $baseRVUYear)
+                    preferenceYearPicker("Compare Year", selection: $comparisonRVUYear)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // Compact schedule-year picker used inside the Preferences list.
+    private func preferenceYearPicker(_ title: String, selection: Binding<Int>) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(supportedRVUYears, id: \.self) { year in
+                Text(String(year)).tag(year)
+            }
+        }
+        .pickerStyle(.menu)
     }
 
     // One editable row in the Manage Profiles section.
@@ -614,6 +685,17 @@ private struct WorkProfileSettingsView: View {
         singleRVUYear = profile.singleRVUYear
         baseRVUYear = profile.baseRVUYear
         comparisonRVUYear = profile.comparisonRVUYear
+    }
+
+    // Saves edits from the Profile Defaults section onto the selected profile.
+    private func saveCurrentSettingsToActiveProfile() {
+        guard let profile = activeProfile else { return }
+        profile.providerProfileRaw = selectedProfileRaw
+        profile.scheduleModeRaw = scheduleModeRaw
+        profile.singleRVUYear = singleRVUYear
+        profile.baseRVUYear = baseRVUYear
+        profile.comparisonRVUYear = comparisonRVUYear
+        try? modelContext.save()
     }
 }
 
